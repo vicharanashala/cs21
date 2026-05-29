@@ -26,7 +26,7 @@ router.get('/', auth, async (req, res, next) => {
           name: user.name,
           avatar: user.avatar,
         },
-        xp: user.xp || (faqsCreated * 10 + (upvotesReceived[0]?.total || 0) * 2 + acceptedSolutions * 20),
+        xp: user.xp ?? (faqsCreated * 10 + (upvotesReceived[0]?.total || 0) * 2 + acceptedSolutions * 20),
         faqsCreated,
         upvotesReceived: upvotesReceived[0]?.total || 0,
         acceptedSolutions,

@@ -112,7 +112,7 @@ router.get('/rising-topics', auth, async (req, res, next) => {
       category: c._id,
       current: c.count,
       previous: prevMap[c._id] || 0,
-      growth: prevMap[c._id] ? Math.round(((c.count - prevMap[c._id]) / prevMap[c._id]) * 100) : 100,
+      growth: prevMap[c._id] ? Math.round(((c.count - prevMap[c._id]) / prevMap[c._id]) * 100) : (c.count > 0 ? 100 : 0),
     })).filter(r => r.current >= 1).sort((a, b) => b.growth - a.growth);
 
     // Top keywords from tags
