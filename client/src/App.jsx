@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { SocketProvider } from './context/SocketContext'
+import { ToastProvider } from './context/ToastContext'
 import ErrorBoundary from './components/ErrorBoundary'
 import ProtectedRoute from './components/ProtectedRoute'
 import Landing from './pages/Landing'
@@ -21,6 +22,7 @@ export default function App() {
       <ThemeProvider>
         <AuthProvider>
           <SocketProvider>
+            <ToastProvider>
             <ErrorBoundary>
               <Routes>
                 <Route path="/" element={<Landing />} />
@@ -37,6 +39,7 @@ export default function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </ErrorBoundary>
+            </ToastProvider>
           </SocketProvider>
         </AuthProvider>
       </ThemeProvider>

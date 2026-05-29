@@ -1,9 +1,9 @@
-import { ArrowUp, Eye, MessageCircle } from 'lucide-react'
+import { ArrowUp, Eye, MessageCircle, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-export default function FAQCard({ faq }) {
+export default function FAQCard({ faq, isNew = false }) {
   return (
-    <div className="card p-5 hover:border-brand-200 dark:hover:border-brand-800 transition-colors">
+    <div className={`card p-5 transition-all duration-500 ${isNew ? 'border-purple-300 dark:border-purple-700 ring-2 ring-purple-200 dark:ring-purple-800 shadow-purple-100 dark:shadow-purple-900/20 shadow-lg' : 'hover:border-brand-200 dark:hover:border-brand-800'}`}>
       <div className="flex items-start justify-between gap-3 mb-3">
         <Link
           to={`/faqs/${faq._id}`}
@@ -11,8 +11,13 @@ export default function FAQCard({ faq }) {
         >
           {faq.question}
         </Link>
-        {faq.isAI && (
+        {faq.isAI && !isNew && (
           <span className="shrink-0 badge">🤖 AI</span>
+        )}
+        {isNew && (
+          <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-200 border border-purple-200 dark:border-purple-700">
+            <Sparkles size={10} /> New
+          </span>
         )}
       </div>
       <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3 mb-4">
