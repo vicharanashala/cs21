@@ -59,8 +59,10 @@ router.get('/dashboard', auth, async (req, res, next) => {
       { $sort: { totalViews: -1 } },
     ]);
 
+    const categories = await FAQ.distinct('category', { isPublished: true });
+
     res.json({
-      totalFAQs, totalUsers, totalChats,
+      totalFAQs, totalUsers, totalChats, categoryCount: categories.length,
       recentFAQs, popularFAQs, solvedFAQs,
       topContributors, recentActivity,
       chatByDay, userByDay, categoryBreakdown, faqsByCategory,
@@ -123,6 +125,20 @@ router.get('/rising-topics', auth, async (req, res, next) => {
     const topTags = Object.entries(tagFreq).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([tag, count]) => ({ tag, count }));
 
     res.json({ rising, topTags });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /analytics/search-failures/:id/convert — mark failure as converted
+router.post('/search-failures/:id/convert', auth, adminOnly, async (req, res, next) => {
+  try {
+    const failure = await SearchFailure.findById(req.params.id);
+    if (!failure) return res.status(404).json({ error: 'Not found' });
+
+    failure.convertedToFAQ = true;
+    await failure.save();
+    res.json({ success: true });
   } catch (err) {
     next(err);
   }

@@ -2,98 +2,125 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { formatDistanceToNow } from 'date-fns'
-import { GlassCard, Badge, Avatar, EmptyState } from '../ui/GlassCard'
-import { Clock, ArrowRight, BookOpen } from 'lucide-react'
+import { Avatar, EmptyState } from '../ui/GlassCard'
+import { BookOpen } from 'lucide-react'
 
 const API = '/api'
 const token = () => localStorage.getItem('token')
 
-export function RecentFAQs({ initialData = null }) {
-  const [faqs, setFaqs] = useState(initialData)
+function getInitials(name) { return name?.[0]?.toUpperCase() || '?' }
+
+export function RecentFAQs({ initialData = null, refreshKey = 0 }) {
+  const [faqs, setFaqs]     = useState(initialData)
   const [loading, setLoading] = useState(!initialData)
 
   useEffect(() => {
-    if (initialData) return
+    if (initialData) { setLoading(false); return }
     fetch(`${API}/analytics/dashboard`, { headers: { Authorization: `Bearer ${token()}` } })
       .then(r => r.json())
       .then(d => setFaqs(d.recentFAQs))
       .catch(() => setFaqs([]))
       .finally(() => setLoading(false))
-  }, [initialData])
+  }, [initialData, refreshKey])
 
   if (loading) return <RecentFAQSkeleton />
 
+  if (!faqs?.length) return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <EmptyState icon={BookOpen} title="No FAQs yet" description="Be the first to add one!" compact />
+    </div>
+  )
+
   return (
-    <GlassCard className="p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">🕐</span>
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">Most Recent FAQs</h2>
-        </div>
-        <Link to="/faqs?sort=newest" className="text-xs text-brand-600 hover:text-brand-700 flex items-center gap-1 font-medium">
-          View all <ArrowRight size={12} />
-        </Link>
-      </div>
-      {!faqs?.length ? (
-        <EmptyState icon={BookOpen} title="No FAQs yet" description="Be the first to add a FAQ!" />
-      ) : (
-        <div className="space-y-2">
-          {faqs.map((faq, i) => (
-            <motion.div
-              key={faq._id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05, duration: 0.3 }}
-            >
-              <Link
-                to={`/faqs/${faq._id}`}
-                className="group flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors -mx-3"
-              >
-                <Avatar name={faq.user?.name} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors line-clamp-2">
-                    {faq.question}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                    <Badge variant="default">{faq.category}</Badge>
-                    <span className="text-xs text-gray-400 flex items-center gap-0.5">
-                      <Clock size={10} />
-                      {formatDistanceToNow(new Date(faq.createdAt), { addSuffix: true })}
-                    </span>
-                    <span className="text-xs text-gray-400">by {faq.user?.name?.split(' ')[0]}</span>
-                  </div>
-                </div>
-                <div className="shrink-0 flex flex-col items-end gap-1">
-                  {faq.isAI && <Badge variant="ai">🤖 AI</Badge>}
-                  <span className="text-xs text-gray-400">{faq.votes} ↑</span>
-                </div>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
-      )}
-    </GlassCard>
+    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {faqs.map((faq, i) => (
+        <motion.div
+          key={faq._id}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: Math.min(i * 0.04, 0.2) }}
+        >
+          <Link
+            to={`/faqs/${faq._id}`}
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10,
+              padding: '7px 8px', borderRadius: 8,
+              transition: 'background 0.12s',
+              textDecoration: 'none',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          >
+            <Avatar name={faq.user?.name} size="sm" />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{
+                fontSize: 12, fontWeight: 500,
+                color: 'var(--text)',
+                lineHeight: 1.4,
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}>
+                {faq.question}
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                <span style={{
+                  fontSize: 10, fontWeight: 500,
+                  background: 'var(--surface-2)', color: 'var(--text-2)',
+                  padding: '1px 6px', borderRadius: 4,
+                }}>
+                  {faq.category}
+                </span>
+                <span style={{ fontSize: 10, color: 'var(--text-3)' }}>
+                  {formatDistanceToNow(new Date(faq.createdAt), { addSuffix: true })}
+                </span>
+                {faq.isAI && (
+                  <span style={{ fontSize: 10 }}>🤖</span>
+                )}
+              </div>
+            </div>
+            <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+              <span style={{ fontSize: 10, color: 'var(--text-3)' }}>{faq.votes}↑</span>
+            </div>
+          </Link>
+        </motion.div>
+      ))}
+    </div>
   )
 }
 
-export function RecentFAQSkeleton() {
+function RecentFAQSkeleton() {
   return (
-    <GlassCard className="p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-lg">🕐</span>
-        <div className="h-5 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-      </div>
-      <div className="space-y-3">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex items-start gap-3 p-3 -mx-3 animate-pulse">
-            <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 shrink-0" />
-            <div className="flex-1 space-y-2">
-              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
-              <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded w-1/2" />
-            </div>
+    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '7px 8px' }}>
+          <div style={{
+            width: 24, height: 24, borderRadius: '50%',
+            background: 'var(--surface-2)',
+            animation: 'shimmer 1.5s infinite',
+            backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--border) 50%, var(--surface-2) 75%)',
+            backgroundSize: '200% 100%',
+            flexShrink: 0,
+          }} />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{
+              height: 11, width: '80%',
+              background: 'var(--surface-2)', borderRadius: 4,
+              animation: 'shimmer 1.5s infinite',
+              backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--border) 50%, var(--surface-2) 75%)',
+              backgroundSize: '200% 100%',
+            }} />
+            <div style={{
+              height: 9, width: '45%',
+              background: 'var(--surface-2)', borderRadius: 4,
+              animation: 'shimmer 1.5s infinite',
+              backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--border) 50%, var(--surface-2) 75%)',
+              backgroundSize: '200% 100%',
+            }} />
           </div>
-        ))}
-      </div>
-    </GlassCard>
+        </div>
+      ))}
+    </div>
   )
 }

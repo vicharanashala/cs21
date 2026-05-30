@@ -1,193 +1,353 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { useAuth } from '../context/AuthContext'
-import { GlassCard, Badge } from '../components/ui/GlassCard'
-import { RecentFAQs } from '../components/dashboard/RecentFAQs'
-import { PopularFAQs } from '../components/dashboard/PopularFAQs'
-import { RisingTopics } from '../components/dashboard/RisingTopics'
-import { AISuggestedAnswers } from '../components/dashboard/AISuggestedAnswers'
-import { DuplicateDetector } from '../components/dashboard/DuplicateDetector'
-import { SearchFailures } from '../components/dashboard/SearchFailures'
-import { LiveActivityFeed } from '../components/dashboard/LiveActivityFeed'
+import { useAuth }  from '../context/AuthContext'
+import { useRefresh } from '../context/RefreshContext'
+import { RecentFAQs }     from '../components/dashboard/RecentFAQs'
+import { PopularFAQs }    from '../components/dashboard/PopularFAQs'
 import { RecentlySolved } from '../components/dashboard/RecentlySolved'
-import { TopContributors } from '../components/dashboard/Leaderboard'
+import { RisingTopics }   from '../components/dashboard/RisingTopics'
+import { LiveActivityFeed } from '../components/dashboard/LiveActivityFeed'
+import { TopContributors }  from '../components/dashboard/Leaderboard'
+import { AISuggestedAnswers } from '../components/dashboard/AISuggestedAnswers'
+import { SearchFailures }  from '../components/dashboard/SearchFailures'
 import { AIUsageAnalytics } from '../components/dashboard/AIUsageAnalytics'
-import { SmartNotifications } from '../components/dashboard/SmartNotifications'
-import { VoiceFAQAssistant } from '../components/dashboard/VoiceFAQAssistant'
 import {
-  BookOpen, Users, MessageSquare, FolderOpen,
-  ArrowRight, TrendingUp, Sparkles
+  Sparkles, RefreshCw, TrendingUp, Inbox,
+  Zap, Users, Activity, ChevronRight,
 } from 'lucide-react'
 
-const API = '/api'
-const token = () => localStorage.getItem('token')
+const API   = '/api'
+const ACCENT = '#7C3AED'
+const getToken = () => localStorage.getItem('token')
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.05 } },
-}
-const itemVariants = {
-  hidden: { opacity: 0, y: 10 },
-  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 22 } },
-}
-
-// Row wrapper — equal-height flex layout
-function Row({ children, className = '' }) {
+// ── Stat pill ─────────────────────────────────────────────────
+function StatPill({ label, value, icon: Icon }) {
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
-      className={`flex flex-col md:flex-row items-stretch gap-5 ${className}`}
-    >
-      {children}
-    </motion.div>
-  )
-}
-
-// Each card slot — flex-1 with equal height
-function Slot({ children, className = '' }) {
-  return (
-    <motion.div variants={itemVariants} className={`flex flex-col ${className}`}>
-      {children}
-    </motion.div>
-  )
-}
-
-export default function Dashboard() {
-  const { user } = useAuth()
-  const [stats, setStats] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const isAdmin = user?.role === 'admin'
-
-  useEffect(() => {
-    fetch(`${API}/analytics/dashboard`, { headers: { Authorization: `Bearer ${token()}` } })
-      .then(r => r.json())
-      .then(d => setStats(d))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
-
-  const statCards = [
-    { label: 'Total FAQs', value: stats?.totalFAQs ?? 0, icon: BookOpen, color: 'from-brand-500 to-brand-600', bg: 'bg-brand-50 dark:bg-brand-900/20', iconColor: 'text-brand-600' },
-    { label: 'Community Users', value: stats?.totalUsers ?? 0, icon: Users, color: 'from-violet-500 to-violet-600', bg: 'bg-violet-50 dark:bg-violet-900/20', iconColor: 'text-violet-600' },
-    { label: 'AI Interactions', value: stats?.totalChats ?? 0, icon: MessageSquare, color: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20', iconColor: 'text-emerald-600' },
-    { label: 'Categories', value: stats?.categoryCount ?? 0, icon: FolderOpen, color: 'from-amber-500 to-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20', iconColor: 'text-amber-600' },
-  ]
-
-  const StatCardItem = ({ label, value, icon: Icon, color, bg, iconColor }) => (
-    <Slot>
-      <GlassCard className="p-5 flex flex-col h-full">
-        <div className={`absolute inset-0 bg-gradient-to-br ${color} opacity-[0.03]`} />
-        <div className="flex items-start justify-between mb-3">
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</span>
-          <div className={`w-8 h-8 ${bg} rounded-xl flex items-center justify-center`}>
-            <Icon size={16} className={iconColor} />
-          </div>
-        </div>
-        <div className="text-3xl font-extrabold text-gray-900 dark:text-white tabular-nums mt-auto">
-          {typeof value === 'number' ? value.toLocaleString() : value}
-        </div>
-        <div className="flex items-center gap-1 mt-1.5 text-xs text-gray-400">
-          <TrendingUp size={11} />
-          <span>+{Math.floor(Math.random() * 12 + 3)}% this week</span>
-        </div>
-      </GlassCard>
-    </Slot>
-  )
-
-  return (
-    <div className="max-w-[1400px] mx-auto space-y-5 px-1">
-
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Good {getTimeOfDay()}, {user?.name?.split(' ')[0]} 👋
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Here's what's happening on <span className="text-brand-600 font-medium">Crowd</span> today.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {isAdmin && <Badge variant="warning">🛡️ Admin</Badge>}
-          <Link to="/chat" className="btn-primary flex items-center gap-2 text-sm">
-            <Sparkles size={15} /> Ask AI
-          </Link>
-        </div>
-      </motion.div>
-
-      {/* Stats Row — 4 equal cards */}
-      <Row>
-        {loading
-          ? Array.from({ length: 4 }).map((_, i) => <Slot key={i}><GlassCard className="p-5 h-full"><div className="h-24 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" /></GlassCard></Slot>)
-          : statCards.map(card => <StatCardItem key={card.label} {...card} />)
-        }
-      </Row>
-
-      {/* Row 2: Recent FAQs (1/3) + Popular FAQs (1/3) + Live Activity (1/3) */}
-      <Row>
-        <Slot className="w-full md:w-1/3"><RecentFAQs initialData={stats?.recentFAQs} /></Slot>
-        <Slot className="w-full md:w-1/3"><PopularFAQs initialData={stats?.popularFAQs} /></Slot>
-        <Slot className="w-full md:w-1/3"><LiveActivityFeed /></Slot>
-      </Row>
-
-      {/* Row 3: AI Suggestions + Recently Solved + Top Contributors */}
-      <Row>
-        <Slot className="w-full md:w-1/3"><AISuggestedAnswers /></Slot>
-        <Slot className="w-full md:w-1/3"><RecentlySolved initialData={stats?.solvedFAQs} /></Slot>
-        <Slot className="w-full md:w-1/3"><TopContributors /></Slot>
-      </Row>
-
-      {/* Row 4: AI Analytics (1/2) + Rising Topics (1/4) + Notifications (1/4) */}
-      <Row>
-        <Slot className="w-full lg:w-1/2"><AIUsageAnalytics /></Slot>
-        <Slot className="w-full lg:w-1/4"><RisingTopics /></Slot>
-        <Slot className="w-full lg:w-1/4"><SmartNotifications /></Slot>
-      </Row>
-
-      {/* Row 5: Search Failures + Duplicate Detector (admin only, side by side) */}
-      {isAdmin && (
-        <Row>
-          <Slot className="w-full md:w-1/2"><SearchFailures isAdmin={true} /></Slot>
-          <Slot className="w-full md:w-1/2"><DuplicateDetector /></Slot>
-        </Row>
-      )}
-
-      {/* Voice FAQ Assistant — full width */}
-      <Slot><VoiceFAQAssistant /></Slot>
-
-      {/* Bottom quick links */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4 }}
-        className="flex items-center justify-center gap-4 py-2 text-sm text-gray-400 border-t border-gray-100 dark:border-gray-800"
-      >
-        <Link to="/faqs" className="flex items-center gap-1.5 hover:text-brand-600 transition-colors">
-          Browse FAQs <ArrowRight size={14} />
-        </Link>
-        <span>·</span>
-        <Link to="/chat" className="flex items-center gap-1.5 hover:text-brand-600 transition-colors">
-          Chat with AI <ArrowRight size={14} />
-        </Link>
-        <span>·</span>
-        <Link to="/profile" className="hover:text-brand-600 transition-colors">Profile</Link>
-        {isAdmin && (<><span>·</span><Link to="/admin" className="hover:text-brand-600 transition-colors">Admin Panel</Link></>)}
-      </motion.div>
-
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      background: 'var(--surface-2)', border: '1px solid var(--border)',
+      borderRadius: 10, padding: '7px 14px',
+    }}>
+      {Icon && <Icon size={13} style={{ color: 'var(--accent)' }} />}
+      <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.04em' }}>
+        {value ?? '—'}
+      </span>
+      <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500 }}>{label}</span>
     </div>
   )
 }
 
-function getTimeOfDay() {
-  const h = new Date().getHours()
-  if (h < 12) return 'morning'
-  if (h < 17) return 'afternoon'
-  return 'evening'
+// ── Card shell ─────────────────────────────────────────────────
+function Card({ children, style = {}, className = '' }) {
+  return (
+    <div
+      className={`card ${className}`}
+      style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', ...style }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function CardHeader({ icon: Icon, iconColor, title, badge, action }) {
+  return (
+    <div className="card-header" style={{ flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {Icon && <Icon size={13} style={{ color: iconColor || 'var(--text-3)' }} />}
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.01em' }}>
+          {title}
+        </span>
+        {badge > 0 && (
+          <span style={{
+            fontSize: 10, fontWeight: 700,
+            background: 'var(--accent-dim)', color: 'var(--accent)',
+            padding: '1px 7px', borderRadius: 20, lineHeight: '18px',
+          }}>
+            {badge}
+          </span>
+        )}
+      </div>
+      {action}
+    </div>
+  )
+}
+
+// ── FAQ tab switcher ───────────────────────────────────────────
+const FAQ_TABS = [
+  { key: 'recent',  label: 'Recent'  },
+  { key: 'popular', label: 'Popular' },
+  { key: 'solved',  label: 'Solved'  },
+]
+
+// ── Main ────────────────────────────────────────────────────────
+export default function Dashboard() {
+  const { user } = useAuth()
+  const { refreshKey, triggerRefresh } = useRefresh()
+  const [stats, setStats]     = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [faqTab, setFaqTab]   = useState('recent')
+  const isAdmin = user?.role === 'admin'
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`${API}/analytics/dashboard`, {
+          headers: { Authorization: `Bearer ${getToken()}` },
+        })
+        const d = await res.json()
+        if (!cancelled) setStats(d)
+      } catch { /* keep stale */ }
+      finally { if (!cancelled) setLoading(false) }
+    })()
+    return () => { cancelled = true }
+  }, [refreshKey])
+
+  const greeting = () => {
+    const h = new Date().getHours()
+    if (h < 12) return 'Good morning'
+    if (h < 18) return 'Good afternoon'
+    return 'Good evening'
+  }
+
+  const dayStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+
+  const badgeStyle = (active) => ({
+    padding: '3px 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
+    fontSize: 11, fontWeight: 600, fontFamily: 'inherit',
+    transition: 'all 0.12s',
+    background: active ? 'var(--accent)' : 'transparent',
+    color: active ? '#fff' : 'var(--text-3)',
+    boxShadow: active ? `0 2px 8px ${ACCENT}40` : 'none',
+  })
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.18 }}
+      style={{ padding: '24px 28px', maxWidth: 1360, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}
+    >
+
+      {/* ══ HEADER ════════════════════════════════════════════════ */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.035em', lineHeight: 1.15 }}>
+            {greeting()}, {user?.name?.split(' ')[0] || 'there'}
+          </h1>
+          <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>{dayStr}</p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {!loading && stats && (
+            <>
+              <StatPill label="FAQs"  value={stats.totalFAQs}  icon={Inbox}    />
+              <StatPill label="Chats" value={stats.totalChats} icon={Zap}      />
+              <StatPill label="Users" value={stats.totalUsers} icon={Users}    />
+            </>
+          )}
+          <button
+            onClick={triggerRefresh}
+            disabled={loading}
+            title="Refresh"
+            style={{
+              width: 34, height: 34,
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              color: loading ? 'var(--text-3)' : 'var(--text-2)',
+              transition: 'all 0.15s', flexShrink: 0,
+            }}
+          >
+            <RefreshCw size={13}
+              style={loading ? { animation: 'spin 0.8s linear infinite' } : {}}
+            />
+          </button>
+          <Link to="/chat" className="btn btn-primary" style={{ textDecoration: 'none', height: 34, padding: '0 16px', fontSize: 13 }}>
+            <Sparkles size={12} /> Ask AI
+          </Link>
+        </div>
+      </div>
+
+      {/* ══ ROW 1 — Recent FAQs + Trending ════════════════════════ */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, alignItems: 'stretch' }}>
+
+        {/* LEFT: Recent FAQs */}
+        <Card>
+          <CardHeader
+            icon={Inbox}
+            iconColor="var(--text-3)"
+            title="Recent FAQs"
+            action={
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 8, padding: 3 }}>
+                  {FAQ_TABS.map(t => (
+                    <button key={t.key} onClick={() => setFaqTab(t.key)} style={badgeStyle(faqTab === t.key)}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                <Link to="/faqs" style={{
+                  display: 'flex', alignItems: 'center', gap: 3,
+                  fontSize: 11, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none',
+                }}>
+                  Browse all <ChevronRight size={11} />
+                </Link>
+              </div>
+            }
+          />
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, maxHeight: 320 }}>
+            <div style={{ padding: '6px 0 10px' }}>
+              {faqTab === 'recent'  && <RecentFAQs />}
+              {faqTab === 'popular' && <PopularFAQs />}
+              {faqTab === 'solved'  && <RecentlySolved />}
+            </div>
+          </div>
+        </Card>
+
+        {/* RIGHT: Trending Topics */}
+        <Card>
+          <CardHeader
+            icon={TrendingUp}
+            iconColor="var(--info)"
+            title="Trending"
+          />
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, maxHeight: 320 }}>
+            <div style={{ padding: '6px 0 10px' }}>
+              <RisingTopics />
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* ══ ROW 2 — Analytics (centerpiece) ═══════════════════════ */}
+      <Card>
+        <CardHeader
+          icon={Zap}
+          iconColor="var(--warning)"
+          title="Analytics"
+          action={
+            <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500 }}>Last 14 days</span>
+          }
+        />
+        <div style={{ padding: '14px 20px 18px', minHeight: 260 }}>
+          <AIUsageAnalytics refreshKey={refreshKey} />
+        </div>
+      </Card>
+
+      {/* ══ ROW 3 — Activity + Top Contributors ═══════════════════ */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+        <Card>
+          <CardHeader
+            icon={Activity}
+            iconColor="var(--success)"
+            title="Community Activity"
+            action={
+              <span style={{
+                fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+                background: 'var(--success-dim)', color: 'var(--success)',
+                padding: '2px 8px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 4,
+              }}>
+                <span style={{
+                  width: 5, height: 5, borderRadius: '50%',
+                  background: 'var(--success)', display: 'inline-block',
+                  animation: 'pulse-dot 2s ease-in-out infinite',
+                }} />
+                LIVE
+              </span>
+            }
+          />
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, maxHeight: 240 }}>
+            <div style={{ padding: '6px 0 10px' }}>
+              <LiveActivityFeed refreshKey={refreshKey} />
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader
+            icon={Users}
+            iconColor="var(--accent)"
+            title="Top Contributors"
+            action={
+              <Link to="/admin" style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>
+                View all →
+              </Link>
+            }
+          />
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, maxHeight: 240 }}>
+            <div style={{ padding: '6px 0 10px' }}>
+              <TopContributors refreshKey={refreshKey} />
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* ══ ADMIN ROW — AI Suggestions + Unanswered ═══════════════ */}
+      {isAdmin && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <Card>
+            <CardHeader
+              icon={Sparkles}
+              iconColor="#A855F7"
+              title="AI Suggestions"
+              badge={stats?.pendingCount || 0}
+              action={<span style={{ fontSize: 11, color: 'var(--text-3)' }}>Drafts from search misses</span>}
+            />
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, maxHeight: 180 }}>
+              <div style={{ padding: '6px 0 10px' }}>
+                <AISuggestedAnswers refreshKey={refreshKey} />
+              </div>
+            </div>
+          </Card>
+
+          <Card>
+            <CardHeader
+              icon={Inbox}
+              iconColor="var(--warning)"
+              title="Unanswered Questions"
+              badge={stats?.unansweredCount || 0}
+              action={
+                <Link to="/chat" style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>
+                  Create FAQ →
+                </Link>
+              }
+            />
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, maxHeight: 180 }}>
+              <div style={{ padding: '6px 0 10px' }}>
+                <SearchFailures isAdmin refreshKey={refreshKey} />
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ══ FOOTER NAV ════════════════════════════════════════════ */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        gap: 24, paddingTop: 4, paddingBottom: 8,
+      }}>
+        {[
+          { to: '/faqs',    label: 'Browse FAQs'  },
+          { to: '/chat',    label: 'AI Chatbot'    },
+          { to: '/profile', label: 'Profile'       },
+          ...(isAdmin ? [{ to: '/admin', label: 'Admin' }] : []),
+        ].map(({ to, label }) => (
+          <Link
+            key={to}
+            to={to}
+            style={{
+              fontSize: 11, fontWeight: 500, color: 'var(--text-3)',
+              textDecoration: 'none', transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-3)'}
+          >
+            {label}
+          </Link>
+        ))}
+      </div>
+    </motion.div>
+  )
 }

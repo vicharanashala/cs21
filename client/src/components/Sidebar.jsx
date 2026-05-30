@@ -2,154 +2,278 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import {
-  LayoutDashboard, MessageSquare, BookOpen, User, Shield,
-  LogOut, Sun, Moon, X, Menu, Bell, Sparkles, Github
+  LayoutDashboard, MessageSquare, BookOpen, User,
+  LogOut, Sun, Moon, X, Menu, Bell, Shield, Github,
 } from 'lucide-react'
 import { GITHUB_PROFILE_URL } from '../config/github'
 import { useState } from 'react'
 
-const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, emoji: '📊' },
-  { to: '/faqs', label: 'FAQ Browser', icon: BookOpen, emoji: '📚' },
-  { to: '/chat', label: 'AI Chatbot', icon: MessageSquare, emoji: '🤖' },
-  { to: '/notifications', label: 'Notifications', icon: Bell, emoji: '🔔' },
-  { to: '/profile', label: 'Profile', icon: User, emoji: '👤' },
+const NAV = [
+  { to: '/dashboard',    label: 'Dashboard',    Icon: LayoutDashboard },
+  { to: '/faqs',         label: 'FAQ Browser',  Icon: BookOpen        },
+  { to: '/chat',         label: 'AI Chatbot',   Icon: MessageSquare   },
+  { to: '/notifications',label: 'Notifications',Icon: Bell            },
+  { to: '/profile',      label: 'Profile',      Icon: User            },
 ]
+
+function Avatar({ name, size = 28 }) {
+  const colors = ['#4F46E5','#7C3AED','#059669','#D97706','#DC2626','#0891B2']
+  const c = colors[(name?.charCodeAt(0) || 0) % colors.length]
+  return (
+    <div
+      className="avatar avatar-sm"
+      style={{ width: size, height: size, background: c, fontSize: size * 0.38 }}
+    >
+      {name?.[0]?.toUpperCase() || '?'}
+    </div>
+  )
+}
+
+function NavItem({ to, label, Icon, onClick }) {
+  return (
+    <NavLink
+      to={to}
+      onClick={onClick}
+      className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+    >
+      {({ isActive }) => (
+        <>
+          {/* Active indicator bar */}
+          {isActive && (
+            <span
+              className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full"
+              style={{ background: 'var(--accent)' }}
+            />
+          )}
+          <Icon size={15} style={{ flexShrink: 0, opacity: isActive ? 1 : 0.7 }} />
+          <span>{label}</span>
+        </>
+      )}
+    </NavLink>
+  )
+}
 
 export default function Sidebar() {
   const { user, logout } = useAuth()
   const { dark, toggle } = useTheme()
   const navigate = useNavigate()
-  const [mobileOpen, setMobileOpen] = useState(false)
+  const [open, setOpen] = useState(false)
 
   const handleLogout = () => { logout(); navigate('/') }
 
-  const NavItem = ({ to, label, icon: Icon, emoji }) => {
-    const cls = ({ isActive }) =>
-      `group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-        isActive
-          ? 'bg-brand-600 text-white shadow-sm shadow-brand-200 dark:shadow-brand-900/30'
-          : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200'
-      }`
-    return (
-      <NavLink to={to} className={cls} onClick={() => setMobileOpen(false)}>
-        <span className="text-base">{emoji}</span>
-        <span>{label}</span>
-      </NavLink>
-    )
-  }
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full">
+
+      {/* Logo */}
+      <div className="flex items-center gap-2.5 px-4 py-4 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+        {/* Geometric icon: two rounded rects forming a "C" mark */}
+        <div style={{ width: 28, height: 28, flexShrink: 0 }}>
+          <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4" y="4" width="14" height="14" rx="3" fill="#4F46E5" />
+            <rect x="10" y="10" width="14" height="14" rx="3" fill="#4F46E5" opacity="0.4" />
+          </svg>
+        </div>
+        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.03em' }}>
+          Crowd
+        </span>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
+        <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.06em', textTransform: 'uppercase', padding: '4px 7px 6px' }}>Menu</p>
+        {NAV.map(({ to, label, Icon }) => (
+          <NavItem key={to} to={to} label={label} Icon={Icon} onClick={() => setOpen(false)} />
+        ))}
+
+        {user?.role === 'admin' && (
+          <>
+            <div style={{ height: 1, background: 'var(--border)', margin: '6px 0' }} />
+            <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.06em', textTransform: 'uppercase', padding: '4px 7px 6px' }}>Admin</p>
+            <NavLink
+              to="/admin"
+              onClick={() => setOpen(false)}
+              className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full" style={{ background: '#7C3AED' }} />
+                  )}
+                  <Shield size={15} style={{ flexShrink: 0, opacity: isActive ? 1 : 0.7 }} />
+                  <span>Admin Panel</span>
+                  <span
+                    className="ml-auto"
+                    style={{
+                      fontSize: 9, fontWeight: 700,
+                      background: '#7C3AED', color: '#fff',
+                      padding: '1px 5px', borderRadius: 4,
+                      letterSpacing: 0,
+                    }}
+                  >
+                    !
+                  </span>
+                </>
+              )}
+            </NavLink>
+          </>
+        )}
+      </nav>
+
+      {/* Bottom section */}
+      <div
+        className="shrink-0"
+        style={{ borderTop: '1px solid var(--border)', padding: '12px 12px 16px' }}
+      >
+        {/* User info */}
+        <div
+          className="flex items-center gap-2.5 px-2 py-2 rounded-lg mb-2"
+          style={{ background: 'var(--surface-2)' }}
+        >
+          <Avatar name={user?.name} size={28} />
+          <div className="min-w-0 flex-1">
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {user?.name}
+            </p>
+            <p style={{ fontSize: 10, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {user?.email}
+            </p>
+          </div>
+          <span
+            style={{
+              fontSize: 9, fontWeight: 600,
+              background: user?.role === 'admin' ? '#7C3AED22' : '#10B98122',
+              color: user?.role === 'admin' ? '#7C3AED' : '#10B981',
+              padding: '2px 6px', borderRadius: 4,
+              textTransform: 'capitalize',
+              flexShrink: 0,
+            }}
+          >
+            {user?.role}
+          </span>
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button
+            onClick={toggle}
+            className="btn-ghost"
+            style={{ flex: 1, justifyContent: 'flex-start', gap: 7, fontSize: 12 }}
+          >
+            {dark ? <Sun size={14} /> : <Moon size={14} />}
+            {dark ? 'Light mode' : 'Dark mode'}
+          </button>
+          <button
+            onClick={handleLogout}
+            className="btn-ghost"
+            style={{ flex: 1, justifyContent: 'flex-start', gap: 7, fontSize: 12, color: 'var(--danger)' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--danger-bg)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          >
+            <LogOut size={14} />
+            Sign out
+          </button>
+        </div>
+
+        <a
+          href={GITHUB_PROFILE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5"
+          style={{
+            fontSize: 10, color: 'var(--text-3)',
+            padding: '6px 2px 0',
+            transition: 'color 0.15s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--text-2)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-3)'}
+        >
+          <Github size={11} />
+          <span>@{import.meta.env.VITE_GITHUB_USERNAME || 'Nancypaul08'}</span>
+        </a>
+      </div>
+    </div>
+  )
 
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-r border-gray-100 dark:border-gray-800 fixed h-full z-30">
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-gray-100 dark:border-gray-800">
-          <div className="w-8 h-8 bg-gradient-to-br from-brand-600 to-brand-700 rounded-xl flex items-center justify-center shadow-sm">
-            <span className="text-white font-bold text-sm">C</span>
-          </div>
-          <div>
-            <span className="text-base font-bold text-gray-900 dark:text-white">Crowd</span>
-            <p className="text-xs text-gray-400">AI FAQ Portal</p>
-          </div>
-        </div>
-
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map(({ to, label, icon, emoji }) => (
-            <NavItem key={to} to={to} label={label} icon={icon} emoji={emoji} />
-          ))}
-          {user?.role === 'admin' && (
-            <NavLink
-              to="/admin"
-              className={({ isActive }) =>
-                `group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                  isActive
-                    ? 'bg-violet-600 text-white shadow-sm'
-                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200'
-                }`
-              }
-              onClick={() => setMobileOpen(false)}
-            >
-              <span className="text-base">🛡️</span>
-              <span>Admin Panel</span>
-              {user?.role === 'admin' && (
-                <span className="ml-auto px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-xs font-bold">!</span>
-              )}
-            </NavLink>
-          )}
-        </nav>
-
-        {/* Bottom controls */}
-        <div className="px-3 py-4 border-t border-gray-100 dark:border-gray-800 space-y-1">
-          <button
-            onClick={toggle}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200 w-full transition-all"
-          >
-            {dark ? <Sun size={16} /> : <Moon size={16} />}
-            <span>{dark ? 'Light Mode' : 'Dark Mode'}</span>
-          </button>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 w-full transition-all"
-          >
-            <LogOut size={16} />
-            <span>Logout</span>
-          </button>
-          <a
-            href={GITHUB_PROFILE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-          >
-            <Github size={12} />
-            <span>@{import.meta.env.VITE_GITHUB_USERNAME || 'Nancypaul08'}</span>
-          </a>
-          <div className="px-3 py-2 text-xs text-gray-400 space-y-0.5">
-            <p className="font-medium text-gray-600 dark:text-gray-300">{user?.name}</p>
-            <p>{user?.email}</p>
-            <p className="capitalize">
-              <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${
-                user?.role === 'admin' ? 'bg-violet-500' : 'bg-emerald-500'
-              }`} />
-              {user?.role}
-            </p>
-          </div>
-        </div>
+      <aside
+        className="hidden lg:flex flex-col"
+        style={{
+          width: 220,
+          position: 'fixed',
+          top: 0, left: 0, bottom: 0,
+          background: 'var(--surface)',
+          borderRight: '1px solid var(--border)',
+          zIndex: 40,
+          boxShadow: 'var(--shadow-xs)',
+        }}
+      >
+        <SidebarContent />
       </aside>
 
       {/* Mobile toggle */}
       <button
-        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800 backdrop-blur-md"
-        onClick={() => setMobileOpen(!mobileOpen)}
+        className="lg:hidden"
+        onClick={() => setOpen(true)}
+        style={{
+          position: 'fixed', top: 12, left: 12, zIndex: 50,
+          width: 36, height: 36,
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: 'var(--shadow-sm)',
+          cursor: 'pointer',
+          color: 'var(--text-2)',
+        }}
       >
-        {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+        <Menu size={16} />
       </button>
 
       {/* Mobile overlay */}
-      {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 bg-black/30 z-40 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 45,
+            background: 'rgba(0,0,0,0.3)',
+            backdropFilter: 'blur(2px)',
+          }}
+        />
       )}
 
       {/* Mobile sidebar */}
-      <aside className={`lg:hidden fixed top-0 left-0 h-full w-72 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 z-40 transform transition-transform duration-250 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-gray-100 dark:border-gray-800">
-          <div className="w-8 h-8 bg-brand-600 rounded-xl flex items-center justify-center">
-            <span className="text-white font-bold text-sm">C</span>
-          </div>
-          <span className="text-base font-bold text-gray-900 dark:text-white">Crowd</span>
-        </div>
-        <nav className="px-3 py-4 space-y-1">
-          {navItems.map(({ to, label, icon, emoji }) => (
-            <NavItem key={to} to={to} label={label} icon={icon} emoji={emoji} />
-          ))}
-          {user?.role === 'admin' && <NavItem to="/admin" label="Admin Panel" icon={Shield} emoji="🛡️" />}
-        </nav>
-        <div className="absolute bottom-0 left-0 right-0 px-3 py-4 border-t border-gray-100 dark:border-gray-800">
-          <button onClick={handleLogout} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 w-full">
-            <LogOut size={16} /> Logout
+      <aside
+        className="lg:hidden"
+        style={{
+          position: 'fixed', top: 0, left: 0, bottom: 0,
+          width: 260,
+          background: 'var(--surface)',
+          borderRight: '1px solid var(--border)',
+          zIndex: 46,
+          transform: open ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 0.2s ease',
+          boxShadow: 'var(--shadow-lg)',
+          display: 'flex', flexDirection: 'column',
+        }}
+      >
+        {/* Close button */}
+        <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 1 }}>
+          <button
+            onClick={() => setOpen(false)}
+            style={{
+              width: 28, height: 28,
+              background: 'var(--surface-2)',
+              border: 'none', borderRadius: 6,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', color: 'var(--text-2)',
+            }}
+          >
+            <X size={13} />
           </button>
         </div>
+        <SidebarContent />
       </aside>
     </>
   )

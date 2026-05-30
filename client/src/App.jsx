@@ -3,11 +3,14 @@ import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { SocketProvider } from './context/SocketContext'
 import { ToastProvider } from './context/ToastContext'
+import { RefreshProvider } from './context/RefreshContext'
 import ErrorBoundary from './components/ErrorBoundary'
 import ProtectedRoute from './components/ProtectedRoute'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
 import FAQBrowser from './pages/FAQBrowser'
 import ChatBot from './pages/ChatBot'
@@ -23,11 +26,14 @@ export default function App() {
         <AuthProvider>
           <SocketProvider>
             <ToastProvider>
+            <RefreshProvider>
             <ErrorBoundary>
               <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password/:token" element={<ResetPassword />} />
                 <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/faqs" element={<FAQBrowser />} />
@@ -39,6 +45,7 @@ export default function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </ErrorBoundary>
+            </RefreshProvider>
             </ToastProvider>
           </SocketProvider>
         </AuthProvider>

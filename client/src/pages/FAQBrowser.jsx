@@ -1,12 +1,22 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import FAQCard from '../components/FAQCard'
-import { Search, Loader, Plus, X, Sparkles } from 'lucide-react'
+import { Search, Loader, Plus, X, Sparkles, Globe, ChevronDown } from 'lucide-react'
 import { useToast } from '../context/ToastContext'
 
 const API = '/api'
+const NEW_FAQ_HIGHLIGHT_MS = 30_000
 
-const NEW_FAQ_HIGHLIGHT_MS = 30_000 // 30s purple glow for newly arrived AI FAQs
+const LANGUAGES = [
+  { code: 'en', name: 'English',    native: 'English',    flag: '🇬🇧', dir: 'ltr' },
+  { code: 'hi', name: 'Hindi',      native: 'हिन्दी',      flag: '🇮🇳', dir: 'ltr' },
+  { code: 'es', name: 'Spanish',    native: 'Español',    flag: '🇪🇸', dir: 'ltr' },
+  { code: 'fr', name: 'French',     native: 'Français',   flag: '🇫🇷', dir: 'ltr' },
+  { code: 'ar', name: 'Arabic',     native: 'العربية',     flag: '🇸🇦', dir: 'rtl' },
+  { code: 'zh', name: 'Chinese',    native: '中文',        flag: '🇨🇳', dir: 'ltr' },
+  { code: 'de', name: 'German',     native: 'Deutsch',    flag: '🇩🇪', dir: 'ltr' },
+  { code: 'pt', name: 'Portuguese', native: 'Português',  flag: '🇧🇷', dir: 'ltr' },
+]
 
 export default function FAQBrowser() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -15,7 +25,9 @@ export default function FAQBrowser() {
   const [loading, setLoading]         = useState(true)
   const [pagination, setPagination]   = useState(null)
   const [showCreate, setShowCreate]   = useState(false)
-  const [newFaqIds, setNewFaqIds]     = useState(new Set()) // Recently created AI FAQ IDs
+  const [newFaqIds, setNewFaqIds]     = useState(new Set())
+  const [lang, setLang]               = useState(() => localStorage.getItem('faq_lang') || 'en')
+  const [langOpen, setLangOpen]       = useState(false)
 
   const { addToast } = useToast()
 
@@ -23,8 +35,22 @@ export default function FAQBrowser() {
   const category = searchParams.get('category') || ''
   const sort     = searchParams.get('sort') || 'newest'
   const page     = parseInt(searchParams.get('page') || '1')
+  const currentLang = LANGUAGES.find(l => l.code === lang) || LANGUAGES[0]
 
-  // Load FAQ list (only re-runs on filter changes, not on new FAQ events)
+  const selectLang = (code) => {
+    setLang(code)
+    localStorage.setItem('faq_lang', code)
+    setLangOpen(false)
+  }
+
+  // Close lang dropdown on outside click
+  useEffect(() => {
+    if (!langOpen) return
+    const close = (e) => { if (!e.target.closest('.lang-selector')) setLangOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [langOpen])
+
   const loadFAQs = useCallback(async () => {
     setLoading(true)
     try {
@@ -34,7 +60,7 @@ export default function FAQBrowser() {
       if (sort)     params.set('sort', sort)
       params.set('page', String(page))
       params.set('limit', '12')
-
+      params.set('lang', lang)
       const res = await fetch(`${API}/faqs?${params}`)
       const data = await res.json()
       setFaqs(data.faqs || [])
@@ -42,7 +68,7 @@ export default function FAQBrowser() {
     } finally {
       setLoading(false)
     }
-  }, [search, category, sort, page])
+  }, [search, category, sort, page, lang])
 
   useEffect(() => { loadFAQs() }, [loadFAQs])
 
@@ -52,47 +78,24 @@ export default function FAQBrowser() {
       .then(d => setCategories(d.categories || []))
   }, [])
 
-  // ── Socket.io: listen for new AI FAQs ──────────────────────────────────────
   useEffect(() => {
     const handler = (event) => {
       const { type, faq } = event.detail || {}
       if (type !== 'ai_faq_created' || !faq?._id) return
-
-      // Prepend new FAQ to the grid immediately (no full reload)
       setFaqs(prev => {
-        // Avoid duplicates
         if (prev.some(f => f._id === faq._id)) return prev
-        return [{ ...faq, isNew: true, _highlightUntil: Date.now() + NEW_FAQ_HIGHLIGHT_MS }, ...prev]
+        return [{ ...faq, isNew: true }, ...prev]
       })
-
-      // Update pagination total if on page 1 with no filters blocking it
       setPagination(prev => prev ? { ...prev, total: prev.total + 1 } : prev)
-
-      // Mark as "new" — remove highlight after timeout
-      setNewFaqIds(prev => {
-        const next = new Set(prev)
-        next.add(faq._id)
-        return next
-      })
-      setTimeout(() => {
-        setNewFaqIds(prev => {
-          const next = new Set(prev)
-          next.delete(faq._id)
-          return next
-        })
-      }, NEW_FAQ_HIGHLIGHT_MS)
-
-      // Toast notification
+      setNewFaqIds(prev => { const n = new Set(prev); n.add(faq._id); return n })
+      setTimeout(() => setNewFaqIds(prev => { const n = new Set(prev); n.delete(faq._id); return n }), NEW_FAQ_HIGHLIGHT_MS)
       addToast(
         <span>
-          <Sparkles size={14} className="inline mr-1.5 text-purple-600" />
-          <strong>New AI FAQ</strong> — {faq.category}: {faq.question.length > 60 ? faq.question.slice(0, 60) + '…' : faq.question}
-        </span>,
-        'ai',
-        6000
+          <Sparkles size={13} style={{ display: 'inline', marginRight: 5, color: '#7C3AED' }} />
+          <strong>New AI FAQ</strong> — {faq.category}
+        </span>, 'ai', 6000
       )
     }
-
     window.addEventListener('socket-activity', handler)
     return () => window.removeEventListener('socket-activity', handler)
   }, [addToast])
@@ -106,120 +109,235 @@ export default function FAQBrowser() {
   }
 
   const clearFilters = () => setSearchParams({})
-
   const hasFilters = search || category || sort !== 'newest'
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* ── Page header ─────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">FAQ Browser</h1>
-          <p className="text-gray-500 text-sm mt-0.5">
-            {pagination ? `${pagination.total} FAQs found` : 'Loading…'}
+          <h1 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.02em' }}>
+            FAQ Browser
+          </h1>
+          <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
+            {pagination ? `${pagination.total.toLocaleString()} FAQs found` : 'Loading…'}
             {newFaqIds.size > 0 && (
-              <span className="ml-2 inline-flex items-center gap-1 text-purple-600 text-xs font-medium">
-                <Sparkles size={11} /> {newFaqIds.size} new
+              <span style={{ marginLeft: 8, fontSize: 11, color: '#7C3AED', fontWeight: 600 }}>
+                · {newFaqIds.size} new
               </span>
             )}
           </p>
         </div>
-        <button
-          onClick={() => setShowCreate(!showCreate)}
-          className="btn-primary flex items-center gap-2 text-sm"
-        >
-          <Plus size={16} /> Add FAQ
-        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Language selector */}
+          <div className="lang-selector" style={{ position: 'relative' }}>
+            <button
+              onClick={() => setLangOpen(o => !o)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'var(--surface-2)', border: '1px solid var(--border)',
+                borderRadius: 8, padding: '0 12px', height: 34,
+                fontSize: 12, fontWeight: 500, color: 'var(--text)',
+                cursor: 'pointer', fontFamily: 'inherit',
+                transition: 'border-color 0.15s',
+                minWidth: 120,
+              }}
+            >
+              <Globe size={13} style={{ color: 'var(--accent)' }} />
+              <span>{currentLang.flag} {currentLang.native}</span>
+              <ChevronDown size={11} style={{ color: 'var(--text-3)', marginLeft: 'auto' }} />
+            </button>
+
+            {langOpen && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 10, boxShadow: 'var(--shadow-lg)',
+                overflow: 'hidden', zIndex: 200, minWidth: 160,
+              }}>
+                {LANGUAGES.map(l => (
+                  <button
+                    key={l.code}
+                    onClick={() => selectLang(l.code)}
+                    dir={l.dir}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      width: '100%', padding: '9px 14px',
+                      background: l.code === lang ? 'var(--accent-dim)' : 'transparent',
+                      border: 'none', borderBottom: '1px solid var(--border)',
+                      fontSize: 12, fontWeight: l.code === lang ? 600 : 400,
+                      color: l.code === lang ? 'var(--accent)' : 'var(--text)',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={e => { if (l.code !== lang) e.currentTarget.style.background = 'var(--surface-2)' }}
+                    onMouseLeave={e => { if (l.code !== lang) e.currentTarget.style.background = 'transparent' }}
+                  >
+                    <span style={{ fontSize: 15 }}>{l.flag}</span>
+                    <span>{l.native}</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-3)' }}>{l.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => setShowCreate(!showCreate)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: 'var(--accent)', color: '#fff',
+              border: 'none', borderRadius: 8, padding: '0 14px', height: 34,
+              fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              fontFamily: 'inherit', boxShadow: '0 1px 2px rgba(79,70,229,0.2)',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-hover)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--accent)'}
+          >
+            <Plus size={14} /> Add FAQ
+          </button>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="card p-4">
-        <div className="flex flex-wrap gap-3 items-center">
-          <div className="flex items-center gap-2 flex-1 min-w-48 bg-gray-100 dark:bg-gray-800 rounded-xl px-4 py-2">
-            <Search size={16} className="text-gray-400 shrink-0" />
-            <input
-              value={search}
-              onChange={e => updateFilter('search', e.target.value)}
-              placeholder="Search FAQs..."
-              className="bg-transparent outline-none text-sm w-full text-gray-700 dark:text-gray-200 placeholder-gray-400"
-            />
-          </div>
-          <select
-            value={category}
-            onChange={e => updateFilter('category', e.target.value)}
-            className="input-field w-auto text-sm py-2"
+      {/* ── Filter bar ─────────────────────────────────────────── */}
+      <div style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 12, padding: '12px 14px',
+        display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center',
+        boxShadow: 'var(--shadow-xs)',
+      }}>
+        {/* Search */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: 'var(--surface-2)',
+          border: '1px solid var(--border)', borderRadius: 7,
+          padding: '0 12px', height: 34, flex: 1, minWidth: 160,
+        }}>
+          <Search size={13} style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+          <input
+            value={search}
+            onChange={e => updateFilter('search', e.target.value)}
+            placeholder="Search FAQs…"
+            style={{
+              background: 'transparent', border: 'none', outline: 'none',
+              fontSize: 13, color: 'var(--text)', width: '100%', fontFamily: 'inherit',
+            }}
+          />
+        </div>
+
+        {/* Category filter */}
+        <select
+          value={category}
+          onChange={e => updateFilter('category', e.target.value)}
+          style={{
+            height: 34, padding: '0 10px',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)', borderRadius: 7,
+            color: 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          <option value="">All Categories</option>
+          {categories.map(c => (
+            <option key={c._id} value={c.name}>{c.icon} {c.name}</option>
+          ))}
+        </select>
+
+        {/* Sort */}
+        <select
+          value={sort}
+          onChange={e => updateFilter('sort', e.target.value)}
+          style={{
+            height: 34, padding: '0 10px',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)', borderRadius: 7,
+            color: 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
+          <option value="popular">Most Popular</option>
+          <option value="views">Most Viewed</option>
+        </select>
+
+        {hasFilters && (
+          <button
+            onClick={clearFilters}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              background: 'none', border: 'none',
+              fontSize: 12, color: 'var(--danger)', cursor: 'pointer', fontWeight: 500,
+              padding: '4px 8px', borderRadius: 6,
+            }}
           >
-            <option value="">All Categories</option>
-            {categories.map(c => (
-              <option key={c._id} value={c.name}>{c.icon} {c.name}</option>
-            ))}
-          </select>
-          <select
-            value={sort}
-            onChange={e => updateFilter('sort', e.target.value)}
-            className="input-field w-auto text-sm py-2"
-          >
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="popular">Most Popular</option>
-            <option value="views">Most Viewed</option>
-          </select>
+            <X size={12} /> Clear
+          </button>
+        )}
+      </div>
+
+      {/* ── FAQ grid ───────────────────────────────────────────── */}
+      {loading ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}>
+          <Loader size={22} style={{ color: 'var(--accent)', animation: 'spin 0.8s linear infinite' }} />
+        </div>
+      ) : faqs.length === 0 ? (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', padding: '60px 20px', textAlign: 'center',
+          gap: 8,
+        }}>
+          <div style={{ fontSize: 40, marginBottom: 8 }}>🔍</div>
+          <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-2)' }}>No FAQs found</p>
+          <p style={{ fontSize: 13, color: 'var(--text-3)' }}>
+            {hasFilters ? 'Try adjusting your filters' : 'Be the first to add one!'}
+          </p>
           {hasFilters && (
-            <button
-              onClick={clearFilters}
-              className="text-sm text-red-500 hover:text-red-600 flex items-center gap-1"
-            >
-              <X size={14} /> Clear
+            <button onClick={clearFilters} style={{ marginTop: 8, fontSize: 13, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}>
+              Clear filters
             </button>
           )}
         </div>
-      </div>
-
-      {/* FAQ Grid */}
-      {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <Loader size={24} className="animate-spin text-brand-600" />
-        </div>
-      ) : faqs.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-gray-400 text-lg mb-2">No FAQs found</p>
-          <p className="text-gray-400 text-sm">Try adjusting your filters or be the first to add one!</p>
-        </div>
       ) : (
-        <div className="grid md:grid-cols-2 gap-4">
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+          gap: 12,
+        }}>
           {faqs.map(faq => (
-            <FAQCard
-              key={faq._id}
-              faq={faq}
-              isNew={newFaqIds.has(faq._id)}
-            />
+            <FAQCard key={faq._id} faq={faq} isNew={newFaqIds.has(faq._id)} viewLang={lang} />
           ))}
         </div>
       )}
 
-      {/* Pagination */}
+      {/* ── Pagination ─────────────────────────────────────────── */}
       {pagination && pagination.pages > 1 && (
-        <div className="flex items-center justify-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           {page > 1 && (
             <button
               onClick={() => updateFilter('page', String(page - 1))}
-              className="btn-secondary px-4 py-2 text-sm"
-            >Previous</button>
+              className="btn-secondary btn-sm"
+            >
+              ← Previous
+            </button>
           )}
-          <span className="text-sm text-gray-500 px-4">
+          <span style={{ fontSize: 13, color: 'var(--text-3)', padding: '0 8px' }}>
             Page {page} of {pagination.pages}
           </span>
           {page < pagination.pages && (
             <button
               onClick={() => updateFilter('page', String(page + 1))}
-              className="btn-secondary px-4 py-2 text-sm"
-            >Next</button>
+              className="btn-secondary btn-sm"
+            >
+              Next →
+            </button>
           )}
         </div>
       )}
 
-      {/* Create FAQ Modal */}
+      {/* ── Create FAQ Modal ────────────────────────────────────── */}
       {showCreate && (
         <CreateFAQModal
           onClose={() => setShowCreate(false)}
@@ -231,11 +349,10 @@ export default function FAQBrowser() {
   )
 }
 
-// ── Create FAQ Modal ──────────────────────────────────────────────────────────
 function CreateFAQModal({ onClose, onCreated, categories }) {
-  const [form, setForm]     = useState({ question: '', answer: '', category: '', tags: '' })
+  const [form, setForm]       = useState({ question: '', answer: '', category: '', tags: '' })
   const [loading, setLoading] = useState(false)
-  const [error, setError]   = useState('')
+  const [error, setError]     = useState('')
 
   const handleSubmit = async e => {
     e.preventDefault()
@@ -245,10 +362,7 @@ function CreateFAQModal({ onClose, onCreated, categories }) {
       const tagList = form.tags.split(',').map(t => t.trim()).filter(Boolean)
       const res = await fetch(`${API}/faqs`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify({ ...form, tags: tagList }),
       })
       const data = await res.json()
@@ -262,46 +376,101 @@ function CreateFAQModal({ onClose, onCreated, categories }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="card w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-auto">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Add New FAQ</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X size={20} />
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 50,
+        background: 'rgba(0,0,0,0.4)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20,
+        animation: 'fade-in 0.15s ease-out',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 520,
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 14,
+          boxShadow: 'var(--shadow-lg)',
+          maxHeight: '90vh', overflowY: 'auto',
+          animation: 'slide-up 0.2s ease-out',
+        }}
+      >
+        {/* Modal header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '18px 20px 16px',
+          borderBottom: '1px solid var(--border)',
+        }}>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.02em' }}>
+            Add New FAQ
+          </h2>
+          <button
+            onClick={onClose}
+            style={{
+              width: 28, height: 28, background: 'var(--surface-2)',
+              border: 'none', borderRadius: 7, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--text-2)',
+            }}
+          >
+            <X size={13} />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           {error && (
-            <div className="p-3 rounded-xl bg-red-50 text-red-600 text-sm">{error}</div>
+            <div style={{
+              padding: '10px 14px', borderRadius: 8,
+              background: 'var(--danger-bg)', border: '1px solid rgba(220,38,38,0.15)',
+              color: 'var(--danger)', fontSize: 13,
+            }}>
+              {error}
+            </div>
           )}
+
+          {[
+            { field: 'question', label: 'Question', type: 'text', placeholder: 'What would you like to ask?', required: true },
+          ].map(({ field, label, type, placeholder, required }) => (
+            <div key={field}>
+              <label className="label">{label}</label>
+              <input
+                type={type}
+                value={form[field]}
+                onChange={e => setForm({ ...form, [field]: e.target.value })}
+                className="input"
+                placeholder={placeholder}
+                required={required}
+                style={{ width: '100%' }}
+              />
+            </div>
+          ))}
+
           <div>
-            <label className="block text-sm font-medium mb-1">Question</label>
-            <input
-              value={form.question}
-              onChange={e => setForm({ ...form, question: e.target.value })}
-              className="input-field"
-              placeholder="What would you like to ask?"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Answer</label>
+            <label className="label">Answer</label>
             <textarea
               value={form.answer}
               onChange={e => setForm({ ...form, answer: e.target.value })}
-              className="input-field resize-none"
+              className="textarea"
               rows={4}
               placeholder="Provide a detailed answer…"
               required
+              style={{ width: '100%' }}
             />
           </div>
+
           <div>
-            <label className="block text-sm font-medium mb-1">Category</label>
+            <label className="label">Category</label>
             <select
               value={form.category}
               onChange={e => setForm({ ...form, category: e.target.value })}
-              className="input-field"
+              className="input"
               required
+              style={{ width: '100%' }}
             >
               <option value="">Select category</option>
               {categories.map(c => (
@@ -309,23 +478,30 @@ function CreateFAQModal({ onClose, onCreated, categories }) {
               ))}
             </select>
           </div>
+
           <div>
-            <label className="block text-sm font-medium mb-1">Tags (comma-separated)</label>
+            <label className="label">Tags (comma-separated)</label>
             <input
               value={form.tags}
               onChange={e => setForm({ ...form, tags: e.target.value })}
-              className="input-field"
+              className="input"
               placeholder="python, api, tutorial"
+              style={{ width: '100%' }}
             />
           </div>
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+
+          <div style={{ display: 'flex', gap: 8, paddingTop: 4 }}>
+            <button type="button" onClick={onClose} className="btn-secondary" style={{ flex: 1, height: 38 }}>
+              Cancel
+            </button>
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary flex-1 flex items-center justify-center gap-2"
+              className="btn-primary"
+              style={{ flex: 1, height: 38, justifyContent: 'center', gap: 8 }}
             >
-              {loading && <Loader size={16} className="animate-spin" />} Submit FAQ
+              {loading && <Loader size={14} style={{ animation: 'spin 0.8s linear infinite' }} />}
+              Submit FAQ
             </button>
           </div>
         </form>

@@ -1,5 +1,5 @@
 const OLLAMA_BASE  = 'http://localhost:11434';
-const LLM_MODEL    = 'qwen2.5:latest';
+const LLM_MODEL    = 'qwen2.5:3b';
 const EMBED_MODEL  = 'nomic-embed-text';
 
 function ollamaFetch(path, body) {

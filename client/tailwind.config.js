@@ -5,22 +5,27 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: {
-          50: '#f0f4ff',
-          100: '#dde6ff',
-          200: '#bcd2ff',
-          300: '#8ab4ff',
-          400: '#5a91ff',
-          500: '#2d6fe8',
-          600: '#1556d4',
-          700: '#1244b0',
-          800: '#15388a',
-          900: '#153169',
-          950: '#0d1b3d',
-        },
+        accent: { DEFAULT: '#7C3AED', hover: '#6D28D9' },
+        success: '#10B981',
+        warning: '#F59E0B',
+        danger:  '#EF4444',
+        info:    '#38BDF8',
       },
-      fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+      fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] },
+      borderRadius: {
+        sm: '8px', DEFAULT: '12px', lg: '16px', xl: '20px',
+      },
+      boxShadow: {
+        xs: '0 1px 2px rgba(0,0,0,0.25)',
+        sm: '0 2px 4px rgba(0,0,0,0.3)',
+        md: '0 6px 16px rgba(0,0,0,0.35)',
+        lg: '0 16px 40px rgba(0,0,0,0.45)',
+      },
+      fontSize: {
+        '2xs': ['10px', { lineHeight: '1.4' }],
+        xs:  ['11px', { lineHeight: '1.4' }],
+        sm:  ['13px', { lineHeight: '1.5' }],
+        base: ['14px', { lineHeight: '1.5' }],
       },
     },
   },
