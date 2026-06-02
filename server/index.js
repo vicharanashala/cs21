@@ -23,15 +23,22 @@ const Activity = require('./models/Activity');
 const app = express();
 const server = http.createServer(app);
 
+// Allow both local dev and production frontend URLs
+const CORS_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:4173',
+  process.env.CLIENT_URL,          // production frontend (e.g. https://crowd-faq.onrender.com)
+].filter(Boolean);
+
 const io = new Server(server, {
-  cors: { origin: 'http://localhost:5173', credentials: true },
+  cors: { origin: CORS_ORIGINS, credentials: true },
 });
 
 app.set('io', io);
 app.broadcast = (event, data) => io.emit(event, data);
 
 app.use(helmet());
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+app.use(cors({ origin: CORS_ORIGINS, credentials: true }));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
