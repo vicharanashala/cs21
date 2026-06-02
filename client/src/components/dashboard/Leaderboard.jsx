@@ -1,83 +1,175 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { GlassCard, Avatar, Badge } from '../ui/GlassCard'
-import { Trophy, Star, ArrowUp, Award, Zap } from 'lucide-react'
+import { Avatar } from '../ui/GlassCard'
+import { Trophy } from 'lucide-react'
 
 const API = '/api'
 const token = () => localStorage.getItem('token')
 
-const mockLeaderboard = [
-  { rank: 1, user: { name: 'Alex Rivera', avatar: '' }, xp: 3420, faqsCreated: 28, upvotesReceived: 412, acceptedSolutions: 14 },
-  { rank: 2, user: { name: 'Alice Chen', avatar: '' }, xp: 2180, faqsCreated: 19, upvotesReceived: 287, acceptedSolutions: 9 },
-  { rank: 3, user: { name: 'Bob Kumar', avatar: '' }, xp: 1850, faqsCreated: 15, upvotesReceived: 221, acceptedSolutions: 7 },
-  { rank: 4, user: { name: 'Carol Singh', avatar: '' }, xp: 1620, faqsCreated: 12, upvotesReceived: 198, acceptedSolutions: 5 },
-  { rank: 5, user: { name: 'David Park', avatar: '' }, xp: 1340, faqsCreated: 9, upvotesReceived: 143, acceptedSolutions: 3 },
-]
+const medals = ['#FBBF24', '#ADAFBE', '#CD7F32'] // gold, silver, bronze
 
-const medalColors = ['text-amber-400', 'text-gray-300', 'text-amber-600']
-
-export function TopContributors() {
+export function TopContributors({ refreshKey = 0 }) {
   const [leaders, setLeaders] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState('')
 
-  useEffect(() => {
-    fetch(`${API}/leaderboard`, { headers: { Authorization: `Bearer ${token()}` } })
-      .then(r => r.json())
-      .then(d => setLeaders(d.leaderboard || mockLeaderboard))
-      .catch(() => setLeaders(mockLeaderboard))
-      .finally(() => setLoading(false))
+  const load = useCallback(async () => {
+    try {
+      const res  = await fetch(`${API}/leaderboard`, { headers: { Authorization: `Bearer ${token()}` } })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setLeaders(data.leaderboard?.slice(0, 5) || [])
+      setError('')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  return (
-    <GlassCard className="p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Trophy size={18} className="text-amber-500" />
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">Top Contributors</h2>
-        </div>
-        <Badge variant="warning">🏆 Leaderboard</Badge>
-      </div>
+  useEffect(() => { load() }, [load, refreshKey])
 
-      {loading ? (
-        <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3 p-2 animate-pulse">
-            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700" />
-            <div className="flex-1 space-y-1.5"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3" /><div className="h-3 bg-gray-100 dark:bg-gray-800 rounded w-1/3" /></div>
+  if (loading) return <Skeleton />
+
+  if (error) return (
+    <div style={{
+      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      flexDirection: 'column', gap: 8,
+    }}>
+      <p style={{ fontSize: 11, color: 'var(--danger)' }}>{error}</p>
+      <button
+        onClick={load}
+        style={{
+          fontSize: 11, color: 'var(--accent)', background: 'none',
+          border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
+        }}
+      >
+        Retry
+      </button>
+    </div>
+  )
+
+  if (!leaders.length) return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <p style={{ fontSize: 12, color: 'var(--text-3)' }}>No contributors yet</p>
+    </div>
+  )
+
+  return (
+    <div style={{
+      flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column',
+      gap: 2, padding: '6px 0 10px',
+    }}>
+      {leaders.map((entry, i) => (
+        <motion.div
+          key={entry._id}
+          initial={{ opacity: 0, x: 8 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: i * 0.05, type: 'spring', stiffness: 260, damping: 22 }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '7px 16px', borderRadius: 10,
+            transition: 'background 0.15s',
+            cursor: 'default',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        >
+          {/* Rank */}
+          <div style={{
+            width: 24, height: 24, borderRadius: 6,
+            background: i < 3 ? `${medals[i]}20` : 'var(--surface-2)',
+            border: i < 3 ? `1px solid ${medals[i]}40` : '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            {i < 3 ? (
+              <Trophy size={11} style={{ color: medals[i] }} />
+            ) : (
+              <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3)' }}>
+                {i + 1}
+              </span>
+            )}
           </div>
-        ))}</div>
-      ) : (
-        <div className="space-y-1">
-          {leaders.slice(0, 5).map((entry, i) => {
-            const isTop3 = entry.rank <= 3
-            return (
-              <motion.div
-                key={entry.user._id || entry.rank}
-                initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className={`flex items-center gap-3 p-2.5 rounded-xl transition-colors ${isTop3 ? 'bg-gradient-to-r from-gray-50 to-transparent dark:from-gray-800/30' : 'hover:bg-gray-50 dark:hover:bg-gray-800/30'}`}
-              >
-                <div className={`w-7 text-center font-bold text-sm ${isTop3 ? medalColors[i] : 'text-gray-400'}`}>
-                  {entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : `#${entry.rank}`}
-                </div>
-                <Avatar name={entry.user?.name} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{entry.user?.name}</p>
-                  <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
-                    <span className="flex items-center gap-0.5"><Star size={10} />{entry.faqsCreated} FAQs</span>
-                    <span className="flex items-center gap-0.5"><ArrowUp size={10} />{entry.upvotesReceived} votes</span>
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <div className="flex items-center gap-1 text-sm font-bold text-brand-600 dark:text-brand-400">
-                    <Zap size={12} />{entry.xp?.toLocaleString()}
-                  </div>
-                  <div className="text-xs text-gray-400">XP</div>
-                </div>
-              </motion.div>
-            )
-          })}
+
+          <Avatar name={entry.user?.name} size="md" />
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{
+              fontSize: 12, fontWeight: 600, color: 'var(--text)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              letterSpacing: '-0.01em',
+            }}>
+              {entry.user?.name?.split(' ')[0] || 'Anonymous'}
+            </p>
+            <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>
+              {entry.faqCount || 0} FAQs · {entry.totalVotes || 0} votes
+            </p>
+          </div>
+
+          {/* Score */}
+          <div style={{
+            padding: '2px 9px', borderRadius: 20,
+            background: i < 3 ? `${medals[i]}18` : 'var(--surface-2)',
+            border: `1px solid ${i < 3 ? medals[i] + '30' : 'var(--border)'}`,
+          }}>
+            <span style={{
+              fontSize: 11, fontWeight: 800,
+              color: i < 3 ? medals[i] : 'var(--text-2)',
+              letterSpacing: '-0.02em',
+            }}>
+              {(entry.totalVotes || 0) + (entry.faqCount || 0) * 10}
+            </span>
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  )
+}
+
+function Skeleton() {
+  return (
+    <div style={{
+      flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column',
+      gap: 4, padding: '6px 0 10px',
+    }}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '7px 16px',
+        }}>
+          <div style={{
+            width: 24, height: 24, borderRadius: 6,
+            background: 'var(--surface-2)',
+            animation: 'shimmer 1.8s infinite',
+            backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%)',
+            backgroundSize: '200% 100%',
+          }} />
+          <div style={{
+            width: 32, height: 32, borderRadius: '50%',
+            background: 'var(--surface-2)',
+            animation: 'shimmer 1.8s infinite',
+            backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%)',
+            backgroundSize: '200% 100%',
+          }} />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{
+              height: 10, width: '65%', borderRadius: 4,
+              background: 'var(--surface-2)',
+              animation: 'shimmer 1.8s infinite',
+              backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%)',
+              backgroundSize: '200% 100%',
+            }} />
+            <div style={{
+              height: 8, width: '40%', borderRadius: 4,
+              background: 'var(--surface-2)',
+              animation: 'shimmer 1.8s infinite',
+              backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%)',
+              backgroundSize: '200% 100%',
+            }} />
+          </div>
         </div>
-      )}
-    </GlassCard>
+      ))}
+    </div>
   )
 }

@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const activitySchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['faq_created', 'ai_response', 'user_signup', 'admin_action', 'issue_resolved', 'faq_voted', 'comment_added'],
+    enum: ['faq_created', 'ai_response', 'ai_reuse', 'user_signup', 'admin_action', 'issue_resolved', 'faq_voted', 'comment_added'],
     required: true,
   },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

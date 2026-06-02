@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -15,6 +16,7 @@ const statsRoutes = require('./routes/stats');
 const activityRoutes = require('./routes/activity');
 const analyticsRoutes = require('./routes/analytics');
 const leaderboardRoutes = require('./routes/leaderboard');
+const notificationRoutes = require('./routes/notifications');
 
 const Activity = require('./models/Activity');
 
@@ -31,11 +33,27 @@ app.broadcast = (event, data) => io.emit(event, data);
 app.use(helmet());
 app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 2000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      error: 'Too many requests',
+      message: 'You have exceeded the rate limit. Please wait a moment and try again.',
+    })
+  },
+});
 app.use('/api/', limiter);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Serve uploaded files (avatars, etc.)
+app.use('/avatars', express.static(path.join(__dirname, 'public', 'avatars')));
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'avatars')));
+app.use('/files', express.static(path.join(__dirname, 'public')));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/faqs', faqRoutes);
@@ -45,6 +63,7 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

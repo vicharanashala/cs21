@@ -1,117 +1,209 @@
 import { motion } from 'framer-motion'
 
-export function GlassCard({ children, className = '', hover = true, onClick, ...props }) {
+// ── Base card ─────────────────────────────────────────────────────────
+export function Card({ children, className = '', onClick, style = {}, hoverable = false }) {
+  return (
+    <div
+      className={className}
+      onClick={onClick}
+      style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 16,
+        boxShadow: 'var(--shadow-sm)',
+        transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
+        ...(hoverable ? { cursor: 'pointer' } : {}),
+        ...style,
+      }}
+      onMouseEnter={hoverable ? (e) => {
+        e.currentTarget.style.boxShadow = 'var(--shadow-md)'
+        e.currentTarget.style.borderColor = 'var(--border-hover)'
+      } : undefined}
+      onMouseLeave={hoverable ? (e) => {
+        e.currentTarget.style.boxShadow = 'var(--shadow-sm)'
+        e.currentTarget.style.borderColor = 'var(--border)'
+      } : undefined}
+    >
+      {children}
+    </div>
+  )
+}
+
+// ── Motion card ───────────────────────────────────────────────────────
+export function MotionCard({ children, className = '', whileHover, ...props }) {
   return (
     <motion.div
-      whileHover={hover ? { y: -2, scale: 1.005 } : {}}
-      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      onClick={onClick}
-      className={`
-        relative overflow-hidden rounded-2xl
-        bg-white/70 dark:bg-gray-900/70
-        backdrop-blur-xl border border-white/20 dark:border-gray-800/30
-        shadow-sm hover:shadow-lg
-        transition-shadow duration-200
-        ${onClick ? 'cursor-pointer' : ''}
-        ${className}
-      `}
-      style={className.includes('h-full') ? { height: '100%' } : undefined}
+      whileHover={whileHover || { scale: 1.003 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+      className={className}
+      style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 14,
+        boxShadow: 'var(--shadow-sm)',
+        ...props.style,
+      }}
       {...props}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent dark:from-white/5 pointer-events-none" />
-      <div className="relative z-10 flex flex-col h-full">{children}</div>
+      {children}
     </motion.div>
   )
 }
 
-export function StatCard({ label, value, icon: Icon, color = 'text-brand-600', trend, trendUp }) {
+// ── Stat card ─────────────────────────────────────────────────────────
+export function StatCard({ label, value, icon: Icon, bg, iconColor, trend, trendUp }) {
   return (
-    <GlassCard className="p-5">
-      <div className="flex items-start justify-between mb-3">
-        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</span>
-        {Icon && <Icon size={18} className={color} />}
+    <Card style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{
+          fontSize: 10, fontWeight: 700, color: 'var(--text-3)',
+          letterSpacing: '0.06em', textTransform: 'uppercase',
+        }}>
+          {label}
+        </span>
+        {Icon && (
+          <div style={{
+            width: 28, height: 28, borderRadius: 8,
+            background: bg || 'var(--surface-2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Icon size={13} style={{ color: iconColor || 'var(--text-2)' }} />
+          </div>
+        )}
       </div>
-      <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{value}</div>
+      <div style={{
+        fontSize: 30, fontWeight: 800,
+        color: 'var(--text)', letterSpacing: '-0.04em',
+        lineHeight: 1,
+        marginTop: 2,
+      }}>
+        {typeof value === 'number' ? value.toLocaleString() : value ?? '—'}
+      </div>
       {trend && (
-        <div className={`text-xs font-medium flex items-center gap-1 ${trendUp ? 'text-emerald-600' : 'text-red-500'}`}>
+        <div style={{
+          fontSize: 11, fontWeight: 700,
+          color: trendUp ? 'var(--success)' : 'var(--danger)',
+          display: 'flex', alignItems: 'center', gap: 3,
+          marginTop: 2,
+        }}>
           <span>{trendUp ? '↑' : '↓'}</span>
           <span>{trend}</span>
         </div>
       )}
-    </GlassCard>
+    </Card>
   )
 }
 
-export function Badge({ children, variant = 'default', className = '' }) {
+// ── Badge ─────────────────────────────────────────────────────────────
+export function Badge({ children, variant = 'default', dot = false, className = '' }) {
   const variants = {
-    default: 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300',
-    success: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
-    warning: 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
-    danger: 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300',
-    info: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
-    purple: 'bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300',
-    ai: 'bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-900/30 dark:to-indigo-900/30 text-violet-700 dark:text-violet-300',
+    default:  { bg: 'var(--surface-3)', color: 'var(--text-2)' },
+    accent:   { bg: 'var(--accent-dim)', color: 'var(--accent)' },
+    success:  { bg: 'var(--success-dim)', color: 'var(--success)' },
+    warning:  { bg: 'var(--warning-dim)', color: 'var(--warning)' },
+    danger:   { bg: 'var(--danger-dim)', color: 'var(--danger)' },
+    info:     { bg: 'var(--info-dim)', color: 'var(--info)' },
+    ai:       { bg: 'var(--accent-dim)', color: 'var(--accent)' },
   }
+  const v = variants[variant] || variants.default
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${variants[variant]} ${className}`}>
+    <span className={`badge ${className}`} style={{ background: v.bg, color: v.color }}>
+      {dot && (
+        <span style={{
+          width: 5, height: 5, borderRadius: '50%',
+          background: 'currentColor', display: 'inline-block',
+        }} />
+      )}
       {children}
     </span>
   )
 }
 
+// ── Avatar ─────────────────────────────────────────────────────────────
 export function Avatar({ name, size = 'md', className = '' }) {
-  const sizes = { sm: 'w-6 h-6 text-xs', md: 'w-8 h-8 text-sm', lg: 'w-10 h-10 text-base', xl: 'w-12 h-12 text-lg' }
-  const colors = ['bg-brand-600', 'bg-violet-600', 'bg-emerald-600', 'bg-amber-600', 'bg-rose-600', 'bg-cyan-600']
-  const colorIndex = (name?.charCodeAt(0) || 0) % colors.length
+  const sizes = { sm: 24, md: 32, lg: 40, xl: 56 }
+  const px    = sizes[size] || sizes.md
+  const colors = ['#7C5CFC', '#38BDF8', '#34D399', '#FBBF24', '#F87171', '#06B6D4']
+  const c = colors[(name?.charCodeAt(0) || 0) % colors.length]
   return (
-    <div className={`${sizes[size]} ${colors[colorIndex]} rounded-full flex items-center justify-center text-white font-semibold shrink-0 ${className}`}>
+    <div
+      className={`avatar ${className}`}
+      style={{
+        width: px, height: px,
+        background: `${c}25`,
+        color: c,
+        fontSize: px * 0.36,
+        fontWeight: 700,
+        border: `1.5px solid ${c}40`,
+      }}
+    >
       {name?.[0]?.toUpperCase() || '?'}
     </div>
   )
 }
 
-export function Skeleton({ className = '', lines = 1 }) {
+// ── Skeleton ───────────────────────────────────────────────────────────
+export function Skeleton({ className = '', height = 12, style = {} }) {
   return (
-    <div className={`space-y-2 ${className}`}>
+    <div
+      className={`skeleton ${className}`}
+      style={{ height, borderRadius: 4, ...style }}
+    />
+  )
+}
+
+export function SkeletonCard({ lines = 3, style = {} }) {
+  return (
+    <Card style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10, ...style }}>
+      <Skeleton width="50%" height={10} />
       {Array.from({ length: lines }).map((_, i) => (
-        <div key={i} className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" style={{ width: `${Math.random() * 40 + 60}%` }} />
+        <Skeleton key={i} width={`${65 + Math.random() * 35}%`} height={10} />
       ))}
+    </Card>
+  )
+}
+
+// ── Empty state ───────────────────────────────────────────────────────
+export function EmptyState({ icon: Icon, title, description, action, compact = false }) {
+  return (
+    <div className="empty-state" style={compact ? { padding: '20px 16px' } : {}}>
+      {Icon && (
+        <div style={{
+          width: 44, height: 44, borderRadius: 12,
+          background: 'var(--surface-2)',
+          border: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 4,
+        }}>
+          <Icon size={20} style={{ color: 'var(--text-3)' }} />
+        </div>
+      )}
+      <strong style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{title}</strong>
+      {description && <p>{description}</p>}
+      {action && <div style={{ marginTop: 8 }}>{action}</div>}
     </div>
   )
 }
 
-export function SkeletonCard() {
-  return (
-    <GlassCard className="p-5 space-y-3">
-      <Skeleton lines={1} className="w-3/4" />
-      <Skeleton lines={2} />
-      <div className="flex justify-between items-center pt-1">
-        <Skeleton lines={1} className="w-20" />
-        <Skeleton lines={1} className="w-24" />
-      </div>
-    </GlassCard>
-  )
-}
-
-export function EmptyState({ icon: Icon, title, description, action }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      {Icon && <Icon size={40} className="text-gray-200 dark:text-gray-700 mb-3" />}
-      <h3 className="text-base font-medium text-gray-500 dark:text-gray-400 mb-1">{title}</h3>
-      {description && <p className="text-sm text-gray-400 dark:text-gray-500 max-w-xs">{description}</p>}
-      {action && <div className="mt-4">{action}</div>}
-    </div>
-  )
-}
-
+// ── Section header ─────────────────────────────────────────────────────
 export function SectionHeader({ title, subtitle, action, icon }) {
   return (
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2">
-        {icon && <span className="text-lg">{icon}</span>}
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      marginBottom: 12,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {icon && <span style={{ fontSize: 16, lineHeight: 1 }}>{icon}</span>}
         <div>
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">{title}</h2>
-          {subtitle && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{subtitle}</p>}
+          <h2 style={{
+            fontSize: 13, fontWeight: 700, color: 'var(--text)',
+            letterSpacing: '-0.01em',
+          }}>
+            {title}
+          </h2>
+          {subtitle && (
+            <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{subtitle}</p>
+          )}
         </div>
       </div>
       {action}
@@ -119,34 +211,60 @@ export function SectionHeader({ title, subtitle, action, icon }) {
   )
 }
 
-export function ProgressBar({ value, max = 100, color = 'bg-brand-500', className = '' }) {
+// ── Progress bar ───────────────────────────────────────────────────────
+export function ProgressBar({ value, max = 100, color = 'var(--accent)', className = '' }) {
   const pct = Math.min(100, (value / max) * 100)
   return (
-    <div className={`h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden ${className}`}>
-      <div className={`h-full ${color} rounded-full transition-all duration-700`} style={{ width: `${pct}%` }} />
+    <div className={className} style={{
+      height: 5, background: 'var(--surface-3)',
+      borderRadius: 3, overflow: 'hidden',
+    }}>
+      <div style={{
+        height: '100%', width: `${pct}%`, background: color,
+        borderRadius: 3, transition: 'width 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
+      }} />
     </div>
   )
 }
 
 export function ConfidenceBar({ confidence }) {
-  const color = confidence >= 85 ? 'bg-emerald-500' : confidence >= 60 ? 'bg-amber-500' : 'bg-red-500'
+  const color = confidence >= 85 ? 'var(--success)'
+    : confidence >= 60 ? 'var(--warning)' : 'var(--danger)'
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-        <div className={`h-full ${color} rounded-full`} style={{ width: `${confidence}%` }} />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{
+        flex: 1, height: 5, background: 'var(--surface-3)',
+        borderRadius: 3, overflow: 'hidden',
+      }}>
+        <div style={{
+          height: '100%', width: `${confidence}%`,
+          background: color, borderRadius: 3,
+          transition: 'width 0.4s ease',
+        }} />
       </div>
-      <span className="text-xs font-medium text-gray-500 w-10 text-right">{confidence}%</span>
+      <span style={{
+        fontSize: 11, fontWeight: 700, color,
+        width: 36, textAlign: 'right',
+        letterSpacing: '-0.02em',
+      }}>
+        {confidence}%
+      </span>
     </div>
   )
 }
 
-export function Spinner({ size = 16 }) {
+// ── Spinner ────────────────────────────────────────────────────────────
+export function Spinner({ size = 18, className = '' }) {
   return (
-    <div className="animate-spin" style={{ width: size, height: size }}>
-      <svg viewBox="0 0 24 24" fill="none" className="text-brand-600">
-        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
-        <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-      </svg>
-    </div>
+    <svg
+      width={size} height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      className={className}
+      style={{ animation: 'spin 0.8s linear infinite' }}
+    >
+      <circle cx="12" cy="12" r="10" stroke="var(--border)" strokeWidth="3" />
+      <path d="M12 2a10 10 0 0 1 10 10" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" />
+    </svg>
   )
 }

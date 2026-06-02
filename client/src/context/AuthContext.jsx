@@ -86,8 +86,13 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Update user state immediately after profile changes — no re-fetch needed
+  const updateUser = (updates) => {
+    setUser(prev => ({ ...prev, ...updates }))
+  }
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

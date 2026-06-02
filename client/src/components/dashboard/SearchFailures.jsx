@@ -1,99 +1,210 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { GlassCard, Badge, Avatar, EmptyState } from '../ui/GlassCard'
-import { SearchX, Plus, TrendingUp, Clock } from 'lucide-react'
+import { EmptyState } from '../ui/GlassCard'
+import { Plus, Clock, Loader, ArrowUpRight } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 const API = '/api'
 const token = () => localStorage.getItem('token')
 
-const mockFailures = [
-  { _id: '1', query: 'how to implement dark mode in material ui', count: 14, lastSearched: new Date(Date.now() - 1000 * 60 * 30) },
-  { _id: '2', query: 'best react state management library 2026', count: 11, lastSearched: new Date(Date.now() - 1000 * 60 * 60) },
-  { _id: '3', query: 'kubernetes autoscaling not working', count: 9, lastSearched: new Date(Date.now() - 1000 * 60 * 90) },
-  { _id: '4', query: 'postgresql deadlock resolution', count: 7, lastSearched: new Date(Date.now() - 1000 * 60 * 120) },
-  { _id: '5', query: 'how to train llama 3 locally', count: 6, lastSearched: new Date(Date.now() - 1000 * 60 * 150) },
-]
-
-export function SearchFailures({ isAdmin = false }) {
+export function SearchFailures({ isAdmin = false, refreshKey = 0 }) {
   const [failures, setFailures] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading]   = useState(true)
   const [converting, setConverting] = useState(null)
+  const navigate = useNavigate()
 
-  useEffect(() => {
-    // Try API first, fall back to mock
-    fetch(`${API}/analytics/search-failures`, { headers: { Authorization: `Bearer ${token()}` } })
-      .then(r => r.json())
-      .then(d => setFailures(d.failures || []))
-      .catch(() => setFailures(mockFailures))
-      .finally(() => setLoading(false))
-  }, [])
+  const load = useCallback(async () => {
+    if (!isAdmin) { setLoading(false); return }
+    try {
+      const res = await fetch(`${API}/analytics/search-failures`, {
+        headers: { Authorization: `Bearer ${token()}` },
+      })
+      const data = await res.json()
+      setFailures(data.failures || [])
+    } catch {
+      setFailures([])
+    } finally {
+      setLoading(false)
+    }
+  }, [isAdmin])
+
+  useEffect(() => { load() }, [load, refreshKey])
 
   const handleConvert = async (item) => {
+    if (converting) return
     setConverting(item._id)
-    await new Promise(r => setTimeout(r, 800))
-    setFailures(prev => prev.filter(f => f._id !== item._id))
-    setConverting(null)
-    // In production: navigate to FAQ creation with pre-filled question
+    try {
+      await fetch(`${API}/analytics/search-failures/${item._id}/convert`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token()}` },
+      })
+      setFailures(prev => prev.filter(f => f._id !== item._id))
+      navigate('/chat', { state: { question: item.query } })
+    } catch { /* ignore */ }
+    finally { setConverting(null) }
+  }
+
+  if (!isAdmin) {
+    return (
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ fontSize: 12, color: 'var(--text-3)' }}>Admin only</p>
+      </div>
+    )
+  }
+
+  if (loading) return <FailuresSkeleton />
+
+  if (failures.length === 0) {
+    return (
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 0' }}>
+        <EmptyState
+          icon={ArrowUpRight}
+          title="All clear"
+          description="No failed searches left to address."
+          compact
+        />
+      </div>
+    )
   }
 
   return (
-    <GlassCard className="p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <SearchX size={18} className="text-red-500" />
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">Search Failure Analytics</h2>
-        </div>
-        <Badge variant="danger">🔴 {failures.length} failed</Badge>
-      </div>
+    <div style={{
+      flex: 1, overflowY: 'auto',
+      display: 'flex', flexDirection: 'column', gap: 3,
+      padding: '4px 4px 8px',
+    }}>
+      {failures.map((item, i) => (
+        <motion.div
+          key={item._id}
+          initial={{ opacity: 0, x: -6 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: i * 0.04, type: 'spring', stiffness: 280, damping: 24 }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '8px 12px', borderRadius: 10,
+            border: '1px solid var(--border)',
+            background: 'var(--surface)',
+            transition: 'all 0.15s ease',
+            cursor: 'default',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'var(--border-hover)'
+            e.currentTarget.style.background = 'var(--surface-2)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border)'
+            e.currentTarget.style.background = 'var(--surface)'
+          }}
+        >
+          {/* Failure count badge */}
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            padding: '4px 8px', borderRadius: 8,
+            background: 'var(--danger-dim)', flexShrink: 0,
+            minWidth: 40,
+          }}>
+            <span style={{
+              fontSize: 14, fontWeight: 800,
+              color: 'var(--danger)', letterSpacing: '-0.04em', lineHeight: 1,
+            }}>
+              {item.count}
+            </span>
+            <span style={{ fontSize: 8, fontWeight: 700, color: 'var(--danger)', opacity: 0.7 }}>
+              FAILED
+            </span>
+          </div>
 
-      {loading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 animate-pulse">
-              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
-              <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded w-12" />
+          {/* Query text */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{
+              fontSize: 12, fontWeight: 500, color: 'var(--text)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              lineHeight: 1.4,
+            }}>
+              "{item.query}"
+            </p>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 4, marginTop: 3,
+            }}>
+              <Clock size={9} style={{ color: 'var(--text-3)' }} />
+              <span style={{ fontSize: 10, color: 'var(--text-3)' }}>
+                {formatDistanceToNow(new Date(item.lastSearched), { addSuffix: true })}
+              </span>
             </div>
-          ))}
+          </div>
+
+          {/* Convert button */}
+          <button
+            onClick={() => handleConvert(item)}
+            disabled={converting === item._id}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '6px 12px', borderRadius: 8,
+              background: 'var(--accent)', border: 'none', cursor: 'pointer',
+              fontSize: 11, fontWeight: 700, color: '#fff',
+              fontFamily: 'inherit',
+              boxShadow: '0 2px 8px var(--accent-dim)',
+              flexShrink: 0,
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'var(--accent-hover)'
+              e.currentTarget.style.boxShadow = '0 4px 14px var(--accent-glow)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'var(--accent)'
+              e.currentTarget.style.boxShadow = '0 2px 8px var(--accent-dim)'
+            }}
+            onClickStopPropagation
+          >
+            {converting === item._id ? (
+              <><Loader size={10} style={{ animation: 'spin 0.8s linear infinite' }} /> Converting…</>
+            ) : (
+              <><Plus size={10} /> Create FAQ</>
+            )}
+          </button>
+        </motion.div>
+      ))}
+    </div>
+  )
+}
+
+function FailuresSkeleton() {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 4px 8px' }}>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '8px 12px', borderRadius: 10,
+          border: '1px solid var(--border)',
+        }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 8,
+            background: 'var(--surface-2)',
+            animation: 'shimmer 1.8s infinite',
+            backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%)',
+            backgroundSize: '200% 100%',
+            flexShrink: 0,
+          }} />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{
+              height: 10, borderRadius: 4,
+              background: 'var(--surface-2)',
+              animation: 'shimmer 1.8s infinite',
+              backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%)',
+              backgroundSize: '200% 100%',
+            }} />
+            <div style={{
+              height: 8, width: '40%', borderRadius: 4,
+              background: 'var(--surface-2)',
+              animation: 'shimmer 1.8s infinite',
+              backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%)',
+              backgroundSize: '200% 100%',
+            }} />
+          </div>
         </div>
-      ) : failures.length === 0 ? (
-        <EmptyState icon={SearchX} title="No search failures" description="All searches are resolving successfully!" />
-      ) : (
-        <div className="space-y-2">
-          {failures.map((item, i) => (
-            <motion.div
-              key={item._id}
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.04 }}
-              className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
-                  "{item.query}"
-                </p>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-xs text-gray-400 flex items-center gap-0.5">
-                    <TrendingUp size={10} /> {item.count} searches
-                  </span>
-                  <span className="text-xs text-gray-400 flex items-center gap-0.5">
-                    <Clock size={10} /> {formatDistanceToNow(new Date(item.lastSearched), { addSuffix: true })}
-                  </span>
-                </div>
-              </div>
-              {isAdmin && (
-                <button
-                  onClick={() => handleConvert(item)}
-                  disabled={converting === item._id}
-                  className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-all disabled:opacity-50"
-                >
-                  <Plus size={12} /> Convert
-                </button>
-              )}
-            </motion.div>
-          ))}
-        </div>
-      )}
-    </GlassCard>
+      ))}
+    </div>
   )
 }

@@ -1,142 +1,231 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { GlassCard, Avatar, Badge } from '../ui/GlassCard'
-import { Activity, Zap, UserPlus, MessageSquare, CheckCircle, Shield, ArrowUp, MessageCircle, RefreshCw } from 'lucide-react'
+import { Activity, RefreshCw } from 'lucide-react'
 
 const API = '/api'
 const token = () => localStorage.getItem('token')
 
 const typeConfig = {
-  faq_created: { icon: '📝', label: 'New FAQ', color: 'text-brand-600', bg: 'bg-brand-50 dark:bg-brand-900/20' },
-  ai_response: { icon: '🤖', label: 'AI Response', color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-900/20' },
-  user_signup: { icon: '👋', label: 'User Joined', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-  admin_action: { icon: '🛡️', label: 'Admin Action', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-  issue_resolved: { icon: '✅', label: 'Issue Resolved', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-  faq_voted: { icon: '⬆️', label: 'FAQ Upvoted', color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/20' },
-  comment_added: { icon: '💬', label: 'Comment Added', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+  faq_created:    { icon: '📝', accent: 'var(--accent)',    bg: 'var(--accent-dim)'    },
+  ai_response:    { icon: '🤖', accent: '#A78BFA',          bg: 'rgba(167,139,250,0.12)' },
+  user_signup:    { icon: '👋', accent: 'var(--success)',   bg: 'var(--success-dim)'  },
+  admin_action:   { icon: '🛡️', accent: 'var(--warning)',   bg: 'var(--warning-dim)'  },
+  issue_resolved: { icon: '✅', accent: 'var(--success)',   bg: 'var(--success-dim)'  },
+  faq_voted:      { icon: '⬆️', accent: 'var(--info)',      bg: 'var(--info-dim)'      },
+  comment_added:  { icon: '💬', accent: '#7C5CFC',          bg: 'var(--accent-dim)'    },
 }
 
-export function LiveActivityFeed() {
+export function LiveActivityFeed({ refreshKey = 0 }) {
   const [activities, setActivities] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [connected, setConnected] = useState(false)
-  const [newCount, setNewCount] = useState(0)
-  const prevCountRef = useRef(0)
-  const wsRef = useRef(null)
+  const [loading, setLoading]       = useState(true)
+  const [connected, setConnected]   = useState(false)
+  const [newCount, setNewCount]     = useState(0)
   const scrollRef = useRef(null)
+  const wsRef     = useRef(null)
+  const countRef  = useRef(0)
 
-  useEffect(() => {
-    loadActivities()
-
-    // Socket.io connection
+  const loadActivities = useCallback(async () => {
     try {
-      const { io } = window._socketIo || {}
-      if (io) {
-        const socket = io('http://localhost:5001', { transports: ['websocket'] })
-        wsRef.current = socket
-        socket.on('connect', () => setConnected(true))
-        socket.on('disconnect', () => setConnected(false))
-        socket.on('activity', (event) => {
-          setActivities(prev => [event, ...prev].slice(0, 30))
-          setNewCount(c => c + 1)
-        })
-      }
-    } catch {
-      // Socket.io not available, fall back to polling
-      const interval = setInterval(loadActivities, 15000)
-      return () => clearInterval(interval)
-    }
-
-    return () => { wsRef.current?.disconnect() }
+      const res  = await fetch(`${API}/activity`, { headers: { Authorization: `Bearer ${token()}` } })
+      const data = await res.json()
+      const fresh = data.activities || []
+      setActivities(prev => {
+        const existing = new Set(prev.map(a => a._id))
+        const added    = fresh.filter(a => !existing.has(a._id))
+        countRef.current += added.length
+        setNewCount(countRef.current)
+        return [...added.reverse(), ...prev].slice(0, 30)
+      })
+    } catch { /* ignore */ }
+    finally { setLoading(false) }
   }, [])
 
-  const loadActivities = () => {
-    fetch(`${API}/activity`, { headers: { Authorization: `Bearer ${token()}` } })
-      .then(r => r.json())
-      .then(d => {
-        setActivities(d.activities || [])
-        if (d.activities?.length > prevCountRef.current) {
-          setNewCount(d.activities.length - prevCountRef.current)
-        }
-        prevCountRef.current = d.activities?.length || 0
+  useEffect(() => {
+    countRef.current = 0; setNewCount(0)
+    loadActivities()
+    const poll = setInterval(loadActivities, 15_000)
+    return () => clearInterval(poll)
+  }, [loadActivities, refreshKey])
+
+  useEffect(() => {
+    try {
+      const { io } = window._socketIo || {}
+      if (!io) return
+      const socket = io('http://localhost:5001', { transports: ['websocket'] })
+      wsRef.current = socket
+      socket.on('connect', () => setConnected(true))
+      socket.on('disconnect', () => setConnected(false))
+      socket.on('activity', (event) => {
+        setActivities(prev => [event, ...prev].slice(0, 30))
+        countRef.current++
+        setNewCount(countRef.current)
       })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }
+      return () => socket.disconnect()
+    } catch { /* WebSocket not available */ }
+  }, [])
 
   const scrollToTop = () => {
     scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-    setNewCount(0)
+    countRef.current = 0; setNewCount(0)
   }
 
   return (
-    <GlassCard className="p-5 flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4 shrink-0">
-        <div className="flex items-center gap-2">
-          <Activity size={18} className={connected ? 'text-emerald-500' : 'text-gray-400'} />
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">Live Activity</h2>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: 10, paddingBottom: 10,
+        borderBottom: '1px solid var(--border)',
+        flexShrink: 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Activity
+            size={13}
+            style={{ color: connected ? 'var(--success)' : 'var(--text-3)' }}
+          />
           {connected && (
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-xs text-emerald-600 font-medium">Live</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{
+                width: 5, height: 5, borderRadius: '50%',
+                background: 'var(--success)', display: 'inline-block',
+                animation: 'pulse-dot 2s ease-in-out infinite',
+              }} />
+              <span style={{
+                fontSize: 9, fontWeight: 800, letterSpacing: '0.07em',
+                color: 'var(--success)',
+              }}>
+                LIVE
+              </span>
             </span>
           )}
         </div>
         {newCount > 0 && (
           <button
             onClick={scrollToTop}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '4px 10px', borderRadius: 20,
+              background: 'var(--accent-dim)', border: 'none', cursor: 'pointer',
+              fontSize: 10, fontWeight: 700, color: 'var(--accent)',
+              fontFamily: 'inherit',
+              boxShadow: '0 2px 8px var(--accent-dim)',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-glow)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--accent-dim)'}
           >
-            <RefreshCw size={10} /> {newCount} new
+            <RefreshCw size={9} /> {newCount} new
           </button>
         )}
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+      {/* Scrollable list */}
+      <div
+        ref={scrollRef}
+        style={{
+          flex: 1, overflowY: 'auto',
+          display: 'flex', flexDirection: 'column', gap: 2,
+          paddingRight: 2,
+        }}
+      >
         {loading ? (
-          <div className="space-y-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex items-start gap-3 p-2 animate-pulse">
-                <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 shrink-0" />
-                <div className="flex-1 space-y-1.5">
-                  <div className="h-3.5 bg-gray-200 dark:bg-gray-700 rounded w-4/5" />
-                  <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded w-1/3" />
+              <div key={i} style={{
+                display: 'flex', alignItems: 'flex-start', gap: 10,
+                padding: '8px 6px', borderRadius: 10,
+              }}>
+                <div style={{
+                  width: 30, height: 30, borderRadius: '50%',
+                  background: 'var(--surface-2)', flexShrink: 0,
+                  animation: 'shimmer 1.8s infinite',
+                  backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%)',
+                  backgroundSize: '200% 100%',
+                }} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{
+                    height: 10, borderRadius: 4,
+                    background: 'var(--surface-2)', animation: 'shimmer 1.8s infinite',
+                    backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%)',
+                    backgroundSize: '200% 100%',
+                  }} />
+                  <div style={{
+                    height: 8, width: '35%', borderRadius: 4,
+                    background: 'var(--surface-2)', animation: 'shimmer 1.8s infinite',
+                    backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%)',
+                    backgroundSize: '200% 100%',
+                  }} />
                 </div>
               </div>
             ))}
           </div>
         ) : activities.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-            No recent activity
+          <div style={{
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <p style={{ fontSize: 12, color: 'var(--text-3)' }}>No activity yet</p>
           </div>
         ) : (
           <AnimatePresence initial={false}>
             {activities.map((activity, i) => {
-              const config = typeConfig[activity.type] || typeConfig.faq_created
+              const cfg  = typeConfig[activity.type] || typeConfig.faq_created
               const isNew = i < newCount
               return (
                 <motion.div
                   key={activity._id || `${activity.type}-${i}`}
-                  initial={isNew ? { opacity: 0, y: -12, scale: 0.95 } : false}
+                  initial={isNew ? { opacity: 0, y: -6, scale: 0.97 } : false}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                  className={`flex items-start gap-3 p-2.5 rounded-xl transition-colors ${
-                    isNew ? 'bg-brand-50/50 dark:bg-brand-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-800/30'
-                  }`}
+                  exit={{ opacity: 0, scale: 0.97 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+                  style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 9,
+                    padding: '7px 6px', borderRadius: 10,
+                    background: isNew ? 'var(--accent-dim)' : 'transparent',
+                    transition: 'background 0.2s',
+                    cursor: 'default',
+                  }}
+                  onMouseEnter={e => {
+                    if (!isNew) e.currentTarget.style.background = 'var(--surface-2)'
+                  }}
+                  onMouseLeave={e => {
+                    if (!isNew) e.currentTarget.style.background = 'transparent'
+                  }}
                 >
-                  <div className={`w-7 h-7 ${config.bg} rounded-full flex items-center justify-center shrink-0 text-sm`}>
-                    {config.icon}
+                  {/* Icon bubble */}
+                  <div style={{
+                    width: 30, height: 30,
+                    borderRadius: '50%',
+                    background: cfg.bg,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                    fontSize: 13,
+                  }}>
+                    {cfg.icon}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-700 dark:text-gray-200 leading-snug">
+
+                  {/* Content */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{
+                      fontSize: 12, fontWeight: 500,
+                      color: 'var(--text)', lineHeight: 1.45,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}>
                       {activity.description}
                     </p>
-                    <p className="text-xs text-gray-400 mt-0.5">
+                    <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>
                       {activity.user?.name?.split(' ')[0] || 'System'} · {formatTimeAgo(activity.createdAt)}
                     </p>
                   </div>
+
+                  {/* New dot */}
                   {isNew && (
-                    <span className="w-2 h-2 bg-brand-500 rounded-full shrink-0 mt-1.5" />
+                    <span style={{
+                      width: 6, height: 6, borderRadius: '50%',
+                      background: 'var(--accent)', flexShrink: 0, marginTop: 4,
+                    }} />
                   )}
                 </motion.div>
               )
@@ -144,14 +233,14 @@ export function LiveActivityFeed() {
           </AnimatePresence>
         )}
       </div>
-    </GlassCard>
+    </div>
   )
 }
 
 function formatTimeAgo(date) {
   const diff = (Date.now() - new Date(date)) / 1000
-  if (diff < 60) return `${Math.floor(diff)}s ago`
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 60)    return `${Math.floor(diff)}s ago`
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
   return `${Math.floor(diff / 86400)}d ago`
 }
