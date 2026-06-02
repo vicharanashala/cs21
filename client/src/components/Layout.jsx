@@ -1,8 +1,12 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 
 export default function Layout() {
+  const location = useLocation()
+  // Only pad left on pages where the Sidebar renders its hamburger
+  const padLeft = location.pathname !== '/faqs' ? 64 : 0
+
   return (
     <div
       style={{
@@ -11,17 +15,17 @@ export default function Layout() {
         background: 'var(--bg)',
       }}
     >
-      {/* Fixed sidebar */}
+      {/* Sidebar — hidden by default, slides in as overlay */}
       <Sidebar />
 
-      {/* Main content — offset by sidebar width (220px) on desktop */}
+      {/* Main content — full width since sidebar is an overlay */}
       <div
         style={{
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
           minWidth: 0,
-          marginLeft: 220,
+          paddingLeft: padLeft,
         }}
       >
         {/* Sticky top bar */}

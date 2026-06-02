@@ -5,7 +5,7 @@ const Category = require('../models/Category');
 const Activity = require('../models/Activity');
 const validate = require('../middleware/validate');
 const { auth, adminOnly } = require('../middleware/auth');
-const { generateTranslationsAsync, LANGUAGES } = require('../services/translation');
+const { generateTranslationsAsync, translateOneLanguage, LANGUAGES } = require('../services/translation');
 
 const router = express.Router();
 
@@ -63,10 +63,14 @@ router.get('/',
       const filter = { isPublished: true };
       if (req.query.category) filter.category = req.query.category;
 
+      // Base sort (fallback after trending items)
       let sort = { createdAt: -1 };
       if (req.query.sort === 'oldest')  sort = { createdAt: 1 };
       if (req.query.sort === 'popular') sort = { votes: -1 };
       if (req.query.sort === 'views')   sort = { views: -1 };
+
+      // Trending items are always pinned to the top (unaffected by user sort)
+      const trendingSort = { isTrending: -1, trendingUntil: -1, ...sort };
 
       // Build search filter
       let searchFilter = filter;
@@ -80,8 +84,15 @@ router.get('/',
         }
       }
 
+      // Clear stale trending flags on each request (no TTL index needed)
+      const now = new Date();
+      await FAQ.updateMany(
+        { isTrending: true, trendingUntil: { $lt: now } },
+        { $set: { isTrending: false } }
+      );
+
       const [faqs, total] = await Promise.all([
-        FAQ.find(searchFilter).sort(sort).skip(skip).limit(limit).populate('user', 'name avatar'),
+        FAQ.find(searchFilter).sort(trendingSort).skip(skip).limit(limit).populate('user', 'name avatar'),
         FAQ.countDocuments(searchFilter),
       ]);
 
@@ -184,6 +195,36 @@ router.post('/',
       generateTranslationsAsync(faq._id.toString());
 
       res.status(201).json({ faq: localizeFAQ(faq, 'en') });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ── POST /faqs/:id/translations/:lang — re-generate one language ─────────────
+router.post('/:id/translations/:lang',
+  auth,
+  async (req, res, next) => {
+    try {
+      const { id, lang } = req.params;
+      if (!LANGUAGES.find(l => l.code === lang)) {
+        return res.status(400).json({ error: 'Unsupported language code' });
+      }
+      const updated = await translateOneLanguage(id, lang);
+      res.json({ lang, ...updated });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ── POST /faqs/:id/translations — re-generate all 7 non-English languages ───
+router.post('/:id/translations',
+  auth,
+  async (req, res, next) => {
+    try {
+      generateTranslationsAsync(req.params.id);
+      res.json({ message: 'Translation regeneration started in background' });
     } catch (err) {
       next(err);
     }

@@ -30,6 +30,10 @@ const faqSchema = new mongoose.Schema({
   embedding:   [{ type: Number }],     // all-MiniLM-L6-v2 384-dim vector
   sourceChat:  { type: mongoose.Schema.Types.ObjectId, ref: 'Chat' },
 
+  // Trending — duplicates get pinned to top of Browse for 90 min
+  isTrending:      { type: Boolean, default: false },
+  trendingUntil:   { type: Date,    default: null },   // null = not trending
+
   // Multilingual — key: language code, value: { question, answer }
   translations: {
     type: Map,
@@ -65,5 +69,6 @@ faqSchema.index({ createdAt: -1 });
 faqSchema.index({ views: -1 });
 faqSchema.index({ votes: -1 });
 faqSchema.index({ embedding: 1 });
+faqSchema.index({ isTrending: 1, trendingUntil: 1 });
 
 module.exports = mongoose.model('FAQ', faqSchema);

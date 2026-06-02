@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuth }   from '../context/AuthContext'
+import { useToast }  from '../context/ToastContext'
 import { Eye, EyeOff, Loader } from 'lucide-react'
 
 export default function Register() {
   const { register } = useAuth()
+  const { addToast } = useToast()
   const navigate = useNavigate()
   const [form, setForm]       = useState({ name: '', email: '', password: '' })
   const [showPw, setShowPw]   = useState(false)
@@ -23,6 +25,7 @@ export default function Register() {
     setLoading(true)
     try {
       await register(form.name, form.email, form.password)
+      addToast('Account created successfully. Welcome to Crowd!', 'success', 6000)
       navigate('/dashboard')
     } catch (err) {
       setError(err.message)

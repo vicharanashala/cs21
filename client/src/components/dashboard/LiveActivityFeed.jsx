@@ -1,19 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Badge } from '../ui/GlassCard'
 import { Activity, RefreshCw } from 'lucide-react'
 
 const API = '/api'
 const token = () => localStorage.getItem('token')
 
 const typeConfig = {
-  faq_created:    { icon: '📝', bg: 'bg-brand-50 dark:bg-brand-900/20' },
-  ai_response:    { icon: '🤖', bg: 'bg-violet-50 dark:bg-violet-900/20' },
-  user_signup:    { icon: '👋', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-  admin_action:   { icon: '🛡️', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-  issue_resolved: { icon: '✅', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-  faq_voted:      { icon: '⬆️', bg: 'bg-orange-50 dark:bg-orange-900/20' },
-  comment_added:  { icon: '💬', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+  faq_created:    { icon: '📝', accent: 'var(--accent)',    bg: 'var(--accent-dim)'    },
+  ai_response:    { icon: '🤖', accent: '#A78BFA',          bg: 'rgba(167,139,250,0.12)' },
+  user_signup:    { icon: '👋', accent: 'var(--success)',   bg: 'var(--success-dim)'  },
+  admin_action:   { icon: '🛡️', accent: 'var(--warning)',   bg: 'var(--warning-dim)'  },
+  issue_resolved: { icon: '✅', accent: 'var(--success)',   bg: 'var(--success-dim)'  },
+  faq_voted:      { icon: '⬆️', accent: 'var(--info)',      bg: 'var(--info-dim)'      },
+  comment_added:  { icon: '💬', accent: '#7C5CFC',          bg: 'var(--accent-dim)'    },
 }
 
 export function LiveActivityFeed({ refreshKey = 0 }) {
@@ -41,7 +40,6 @@ export function LiveActivityFeed({ refreshKey = 0 }) {
     finally { setLoading(false) }
   }, [])
 
-  // Initial load + 15s polling fallback
   useEffect(() => {
     countRef.current = 0; setNewCount(0)
     loadActivities()
@@ -49,7 +47,6 @@ export function LiveActivityFeed({ refreshKey = 0 }) {
     return () => clearInterval(poll)
   }, [loadActivities, refreshKey])
 
-  // WebSocket real-time (supplements polling)
   useEffect(() => {
     try {
       const { io } = window._socketIo || {}
@@ -73,22 +70,49 @@ export function LiveActivityFeed({ refreshKey = 0 }) {
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* Header row */}
-      <div className="flex items-center justify-between mb-2.5 shrink-0">
-        <div className="flex items-center gap-1.5">
-          <Activity size={13} className={connected ? 'text-emerald-500' : 'text-gray-400'} />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: 10, paddingBottom: 10,
+        borderBottom: '1px solid var(--border)',
+        flexShrink: 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Activity
+            size={13}
+            style={{ color: connected ? 'var(--success)' : 'var(--text-3)' }}
+          />
           {connected && (
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-[10px] text-emerald-600 font-semibold">Live</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{
+                width: 5, height: 5, borderRadius: '50%',
+                background: 'var(--success)', display: 'inline-block',
+                animation: 'pulse-dot 2s ease-in-out infinite',
+              }} />
+              <span style={{
+                fontSize: 9, fontWeight: 800, letterSpacing: '0.07em',
+                color: 'var(--success)',
+              }}>
+                LIVE
+              </span>
             </span>
           )}
         </div>
         {newCount > 0 && (
           <button
             onClick={scrollToTop}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-brand-600 text-white text-[10px] font-semibold hover:bg-brand-700 transition-colors"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '4px 10px', borderRadius: 20,
+              background: 'var(--accent-dim)', border: 'none', cursor: 'pointer',
+              fontSize: 10, fontWeight: 700, color: 'var(--accent)',
+              fontFamily: 'inherit',
+              boxShadow: '0 2px 8px var(--accent-dim)',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-glow)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--accent-dim)'}
           >
             <RefreshCw size={9} /> {newCount} new
           </button>
@@ -96,22 +120,50 @@ export function LiveActivityFeed({ refreshKey = 0 }) {
       </div>
 
       {/* Scrollable list */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-1 pr-0.5">
+      <div
+        ref={scrollRef}
+        style={{
+          flex: 1, overflowY: 'auto',
+          display: 'flex', flexDirection: 'column', gap: 2,
+          paddingRight: 2,
+        }}
+      >
         {loading ? (
-          <div className="space-y-1">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex items-start gap-2.5 p-2 rounded-xl animate-pulse">
-                <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 shrink-0" />
-                <div className="flex-1 space-y-1.5">
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-5/6" />
-                  <div className="h-2.5 bg-gray-100 dark:bg-gray-800 rounded w-1/3" />
+              <div key={i} style={{
+                display: 'flex', alignItems: 'flex-start', gap: 10,
+                padding: '8px 6px', borderRadius: 10,
+              }}>
+                <div style={{
+                  width: 30, height: 30, borderRadius: '50%',
+                  background: 'var(--surface-2)', flexShrink: 0,
+                  animation: 'shimmer 1.8s infinite',
+                  backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%)',
+                  backgroundSize: '200% 100%',
+                }} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{
+                    height: 10, borderRadius: 4,
+                    background: 'var(--surface-2)', animation: 'shimmer 1.8s infinite',
+                    backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%)',
+                    backgroundSize: '200% 100%',
+                  }} />
+                  <div style={{
+                    height: 8, width: '35%', borderRadius: 4,
+                    background: 'var(--surface-2)', animation: 'shimmer 1.8s infinite',
+                    backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%)',
+                    backgroundSize: '200% 100%',
+                  }} />
                 </div>
               </div>
             ))}
           </div>
         ) : activities.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-gray-400 text-[12px]">
-            No activity yet
+          <div style={{
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <p style={{ fontSize: 12, color: 'var(--text-3)' }}>No activity yet</p>
           </div>
         ) : (
           <AnimatePresence initial={false}>
@@ -121,25 +173,60 @@ export function LiveActivityFeed({ refreshKey = 0 }) {
               return (
                 <motion.div
                   key={activity._id || `${activity.type}-${i}`}
-                  initial={isNew ? { opacity: 0, y: -8, scale: 0.97 } : false}
+                  initial={isNew ? { opacity: 0, y: -6, scale: 0.97 } : false}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                  className={`flex items-start gap-2.5 p-2 rounded-xl transition-colors ${
-                    isNew ? 'bg-brand-50/60 dark:bg-brand-900/15' : 'hover:bg-gray-50 dark:hover:bg-gray-800/40'
-                  }`}
+                  exit={{ opacity: 0, scale: 0.97 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+                  style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 9,
+                    padding: '7px 6px', borderRadius: 10,
+                    background: isNew ? 'var(--accent-dim)' : 'transparent',
+                    transition: 'background 0.2s',
+                    cursor: 'default',
+                  }}
+                  onMouseEnter={e => {
+                    if (!isNew) e.currentTarget.style.background = 'var(--surface-2)'
+                  }}
+                  onMouseLeave={e => {
+                    if (!isNew) e.currentTarget.style.background = 'transparent'
+                  }}
                 >
-                  <div className={`w-7 h-7 ${cfg.bg} rounded-full flex items-center justify-center shrink-0 text-sm`}>
+                  {/* Icon bubble */}
+                  <div style={{
+                    width: 30, height: 30,
+                    borderRadius: '50%',
+                    background: cfg.bg,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                    fontSize: 13,
+                  }}>
                     {cfg.icon}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[12px] text-gray-700 dark:text-gray-200 leading-snug line-clamp-2">
+
+                  {/* Content */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{
+                      fontSize: 12, fontWeight: 500,
+                      color: 'var(--text)', lineHeight: 1.45,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}>
                       {activity.description}
                     </p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
+                    <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>
                       {activity.user?.name?.split(' ')[0] || 'System'} · {formatTimeAgo(activity.createdAt)}
                     </p>
                   </div>
-                  {isNew && <span className="w-1.5 h-1.5 bg-brand-500 rounded-full shrink-0 mt-1.5" />}
+
+                  {/* New dot */}
+                  {isNew && (
+                    <span style={{
+                      width: 6, height: 6, borderRadius: '50%',
+                      background: 'var(--accent)', flexShrink: 0, marginTop: 4,
+                    }} />
+                  )}
                 </motion.div>
               )
             })}
@@ -152,8 +239,8 @@ export function LiveActivityFeed({ refreshKey = 0 }) {
 
 function formatTimeAgo(date) {
   const diff = (Date.now() - new Date(date)) / 1000
-  if (diff < 60)   return `${Math.floor(diff)}s ago`
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 60)    return `${Math.floor(diff)}s ago`
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
   return `${Math.floor(diff / 86400)}d ago`
 }

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Badge, EmptyState } from '../ui/GlassCard'
-import { Plus, TrendingUp, Clock, Loader } from 'lucide-react'
+import { EmptyState } from '../ui/GlassCard'
+import { Plus, Clock, Loader, ArrowUpRight } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 const API = '/api'
@@ -10,7 +10,7 @@ const token = () => localStorage.getItem('token')
 
 export function SearchFailures({ isAdmin = false, refreshKey = 0 }) {
   const [failures, setFailures] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading]   = useState(true)
   const [converting, setConverting] = useState(null)
   const navigate = useNavigate()
 
@@ -41,17 +41,14 @@ export function SearchFailures({ isAdmin = false, refreshKey = 0 }) {
       })
       setFailures(prev => prev.filter(f => f._id !== item._id))
       navigate('/chat', { state: { question: item.query } })
-    } catch {
-      // ignore
-    } finally {
-      setConverting(null)
-    }
+    } catch { /* ignore */ }
+    finally { setConverting(null) }
   }
 
   if (!isAdmin) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <p className="text-[12px] text-gray-400">Admin only</p>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ fontSize: 12, color: 'var(--text-3)' }}>Admin only</p>
       </div>
     )
   }
@@ -60,40 +57,112 @@ export function SearchFailures({ isAdmin = false, refreshKey = 0 }) {
 
   if (failures.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <EmptyState icon={TrendingUp} title="No unresolved failures" description="All failed searches addressed." compact />
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 0' }}>
+        <EmptyState
+          icon={ArrowUpRight}
+          title="All clear"
+          description="No failed searches left to address."
+          compact
+        />
       </div>
     )
   }
 
   return (
-    <div className="flex-1 overflow-y-auto space-y-1">
+    <div style={{
+      flex: 1, overflowY: 'auto',
+      display: 'flex', flexDirection: 'column', gap: 3,
+      padding: '4px 4px 8px',
+    }}>
       {failures.map((item, i) => (
         <motion.div
           key={item._id}
           initial={{ opacity: 0, x: -6 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: i * 0.04 }}
-          className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
+          transition={{ delay: i * 0.04, type: 'spring', stiffness: 280, damping: 24 }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '8px 12px', borderRadius: 10,
+            border: '1px solid var(--border)',
+            background: 'var(--surface)',
+            transition: 'all 0.15s ease',
+            cursor: 'default',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'var(--border-hover)'
+            e.currentTarget.style.background = 'var(--surface-2)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border)'
+            e.currentTarget.style.background = 'var(--surface)'
+          }}
         >
-          <div className="flex-1 min-w-0">
-            <p className="text-[12px] font-medium text-gray-700 dark:text-gray-300 truncate leading-snug">
+          {/* Failure count badge */}
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            padding: '4px 8px', borderRadius: 8,
+            background: 'var(--danger-dim)', flexShrink: 0,
+            minWidth: 40,
+          }}>
+            <span style={{
+              fontSize: 14, fontWeight: 800,
+              color: 'var(--danger)', letterSpacing: '-0.04em', lineHeight: 1,
+            }}>
+              {item.count}
+            </span>
+            <span style={{ fontSize: 8, fontWeight: 700, color: 'var(--danger)', opacity: 0.7 }}>
+              FAILED
+            </span>
+          </div>
+
+          {/* Query text */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{
+              fontSize: 12, fontWeight: 500, color: 'var(--text)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              lineHeight: 1.4,
+            }}>
               "{item.query}"
             </p>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[10px] text-gray-400">{item.count}× failed</span>
-              <span className="text-[10px] text-gray-400">·</span>
-              <span className="text-[10px] text-gray-400">{formatDistanceToNow(new Date(item.lastSearched), { addSuffix: true })}</span>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 4, marginTop: 3,
+            }}>
+              <Clock size={9} style={{ color: 'var(--text-3)' }} />
+              <span style={{ fontSize: 10, color: 'var(--text-3)' }}>
+                {formatDistanceToNow(new Date(item.lastSearched), { addSuffix: true })}
+              </span>
             </div>
           </div>
+
+          {/* Convert button */}
           <button
             onClick={() => handleConvert(item)}
             disabled={converting === item._id}
-            className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold opacity-0 group-hover:opacity-100 transition-all disabled:opacity-50"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '6px 12px', borderRadius: 8,
+              background: 'var(--accent)', border: 'none', cursor: 'pointer',
+              fontSize: 11, fontWeight: 700, color: '#fff',
+              fontFamily: 'inherit',
+              boxShadow: '0 2px 8px var(--accent-dim)',
+              flexShrink: 0,
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'var(--accent-hover)'
+              e.currentTarget.style.boxShadow = '0 4px 14px var(--accent-glow)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'var(--accent)'
+              e.currentTarget.style.boxShadow = '0 2px 8px var(--accent-dim)'
+            }}
+            onClickStopPropagation
           >
-            {converting === item._id
-              ? <><Loader size={9} className="animate-spin" /></>
-              : <><Plus size={10} /> FAQ</>}
+            {converting === item._id ? (
+              <><Loader size={10} style={{ animation: 'spin 0.8s linear infinite' }} /> Converting…</>
+            ) : (
+              <><Plus size={10} /> Create FAQ</>
+            )}
           </button>
         </motion.div>
       ))}
@@ -103,12 +172,36 @@ export function SearchFailures({ isAdmin = false, refreshKey = 0 }) {
 
 function FailuresSkeleton() {
   return (
-    <div className="flex-1 space-y-1">
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 4px 8px' }}>
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-2.5 p-2 animate-pulse">
-          <div className="flex-1 space-y-1">
-            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-4/5" />
-            <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded w-1/2" />
+        <div key={i} style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '8px 12px', borderRadius: 10,
+          border: '1px solid var(--border)',
+        }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 8,
+            background: 'var(--surface-2)',
+            animation: 'shimmer 1.8s infinite',
+            backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%)',
+            backgroundSize: '200% 100%',
+            flexShrink: 0,
+          }} />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{
+              height: 10, borderRadius: 4,
+              background: 'var(--surface-2)',
+              animation: 'shimmer 1.8s infinite',
+              backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%)',
+              backgroundSize: '200% 100%',
+            }} />
+            <div style={{
+              height: 8, width: '40%', borderRadius: 4,
+              background: 'var(--surface-2)',
+              animation: 'shimmer 1.8s infinite',
+              backgroundImage: 'linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%)',
+              backgroundSize: '200% 100%',
+            }} />
           </div>
         </div>
       ))}

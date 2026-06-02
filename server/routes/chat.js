@@ -53,14 +53,15 @@ router.post('/',
       });
 
       res.json({
-        reply:      result.answer,
-        faqId:      result.faqId,
-        source:     result.source,
-        question:   result.question,
-        category:   result.category,
-        similarity: result.similarity,
-        isNew:      result.isNew,
-        chatId:     chat._id,
+        reply:       result.answer,
+        faqId:       result.faqId,
+        source:      result.source,
+        question:    result.question,
+        category:    result.category,
+        similarity:  result.similarity,
+        isNew:       result.isNew,
+        isDuplicate: result.isDuplicate,
+        chatId:      chat._id,
       });
     } catch (err) {
       console.error('Chat error:', err);
